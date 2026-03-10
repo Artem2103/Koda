@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import ScrollReveal from "@/components/ui/ScrollReveal";
 import { TEAM, VALUES } from "@/lib/constants";
 
 export default function AboutPage() {
@@ -12,73 +11,50 @@ export default function AboutPage() {
       <main style={{ padding: "120px 28px 100px" }}>
         <div className="container">
 
-          {/* Hero */}
           <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 80, marginBottom: 100 }}>
-            <ScrollReveal>
-              <span className="eyebrow" style={{ marginBottom: 32, display: "flex" }}>Company</span>
-            </ScrollReveal>
-            <ScrollReveal delay={1}>
-              <h1 className="text-h1" style={{ maxWidth: 720, marginBottom: 40 }}>
-                Built by people who've
-                <br />moved things.
-              </h1>
-            </ScrollReveal>
-            <ScrollReveal delay={2}>
-              <p className="text-body-lg" style={{ color: "var(--text-2)", maxWidth: 560 }}>
-                Meridian was founded in Hanoi in 2020 by a solo founder. I spent years watching cargo fail for
-                predictable reasons — wrong routes, missed restrictions, unseen risk. I built the tool people always needed.
-              </p>
-            </ScrollReveal>
+            <span className="eyebrow anim-up d-1" style={{ marginBottom: 32, display: "flex" }}>Company</span>
+            <h1 className="text-h1 anim-up d-2" style={{ maxWidth: 720, marginBottom: 40 }}>
+              Built by people who've<br />moved things.
+            </h1>
+            <p className="text-body-lg anim-up d-3" style={{ color: "var(--text-2)", maxWidth: 560 }}>
+              Meridian was founded in Hanoi in 2020 by a solo founder. I spent years watching cargo fail for predictable reasons — wrong
+              routes, missed restrictions, unseen risk. I built the tool people always needed.
+            </p>
           </div>
 
-          {/* Values */}
           <div style={{ marginBottom: 100 }}>
-            <ScrollReveal>
-              <h2 className="text-h2" style={{ marginBottom: 48 }}>What we stand for</h2>
-            </ScrollReveal>
+            <h2 className="text-h2" style={{ marginBottom: 48 }}>What we stand for</h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1, border: "1px solid var(--border)" }}>
               {VALUES.map(({ title, desc }, i) => (
-                <ScrollReveal
-                  key={i}
-                  delay={i % 2}
-                  threshold={0.1}
-                  style={{
-                    padding: "36px 32px",
-                    borderRight:  i % 2 === 0 ? "1px solid var(--border)" : "none",
-                    borderBottom: i < 2       ? "1px solid var(--border)" : "none",
-                    transition: "background 0.2s",
-                  }}
+                <div key={i} style={{
+                  padding: "36px 32px",
+                  borderRight:  i % 2 === 0 ? "1px solid var(--border)" : "none",
+                  borderBottom: i < 2       ? "1px solid var(--border)" : "none",
+                  transition: "background 0.2s",
+                }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-1)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
                   <h3 style={{ fontFamily: "var(--font-display)", fontSize: 21, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 12 }}>{title}</h3>
                   <p className="text-body" style={{ color: "var(--text-2)" }}>{desc}</p>
-                </ScrollReveal>
+                </div>
               ))}
             </div>
           </div>
 
-          {/* Team */}
           <div style={{ marginBottom: 100 }}>
-            <ScrollReveal>
-              <h2 className="text-h2" style={{ marginBottom: 48, borderBottom: "1px solid var(--border)", paddingBottom: 24 }}>The team</h2>
-            </ScrollReveal>
+            <h2 className="text-h2" style={{ marginBottom: 48, borderBottom: "1px solid var(--border)", paddingBottom: 24 }}>The team</h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
               {TEAM.map((member, i) => {
                 const initials = member.name.split(" ").map((n) => n[0]).join("");
                 const col = i % 3;
                 const isLast = i >= TEAM.length - 3;
                 return (
-                  <ScrollReveal
-                    key={i}
-                    delay={col}
-                    threshold={0.1}
-                    style={{
-                      padding: "32px",
-                      borderBottom: !isLast ? "1px solid var(--border)" : "none",
-                      borderRight:  col < 2  ? "1px solid var(--border)" : "none",
-                    }}
-                  >
+                  <div key={i} style={{
+                    padding: "32px",
+                    borderBottom: !isLast ? "1px solid var(--border)" : "none",
+                    borderRight:  col < 2  ? "1px solid var(--border)" : "none",
+                  }}>
                     <div style={{
                       width: 46, height: 46, borderRadius: "50%",
                       background: "var(--bg-3)", border: "1px solid var(--border-hi)",
@@ -89,24 +65,21 @@ export default function AboutPage() {
                     <p style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 4 }}>{member.name}</p>
                     <p className="text-label" style={{ marginBottom: 12 }}>{member.role}</p>
                     <p className="text-body" style={{ color: "var(--text-2)" }}>{member.bio}</p>
-                  </ScrollReveal>
+                  </div>
                 );
               })}
             </div>
           </div>
 
-          {/* Careers CTA */}
-          <ScrollReveal threshold={0.1}>
-            <div style={{ background: "var(--bg-1)", border: "1px solid var(--border)", padding: "60px 48px", borderRadius: "var(--radius-sm)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 32 }}>
-              <div>
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 8 }}>Join the team</h3>
-                <p className="text-body" style={{ color: "var(--text-2)" }}>We're hiring across engineering, data science, and trade compliance.</p>
-              </div>
-              <Link href="/contact" style={{ textDecoration: "none" }}>
-                <button className="btn btn-primary" style={{ padding: "13px 26px", fontSize: 14 }}>View open roles →</button>
-              </Link>
+          <div style={{ background: "var(--bg-1)", border: "1px solid var(--border)", padding: "60px 48px", borderRadius: "var(--radius-sm)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 32 }}>
+            <div>
+              <h3 style={{ fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 8 }}>Join the team</h3>
+              <p className="text-body" style={{ color: "var(--text-2)" }}>We're hiring across engineering, data science, and trade compliance.</p>
             </div>
-          </ScrollReveal>
+            <Link href="/contact" style={{ textDecoration: "none" }}>
+              <button className="btn btn-primary" style={{ padding: "13px 26px", fontSize: 14 }}>View open roles →</button>
+            </Link>
+          </div>
 
         </div>
       </main>
