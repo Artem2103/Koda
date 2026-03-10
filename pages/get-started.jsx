@@ -5,11 +5,7 @@ export default function GetStartedPage() {
   return (
     <>
       <Header />
-      <AuthLayout
-        eyebrow="Get started"
-        heading="Start your free trial"
-        mode="signup"
-      />
+      <AuthLayout eyebrow="Get started" heading="Start your free trial" mode="signup" />
     </>
   );
 }
