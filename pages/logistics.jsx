@@ -2,6 +2,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TradeRouteMap from "@/components/sections/TradeRouteMap";
+import PageMediaBanner from "@/components/ui/PageMediaBanner";
 import { LOGISTICS_FEATURES } from "@/lib/constants";
 
 export default function LogisticsPage() {
@@ -16,6 +17,14 @@ export default function LogisticsPage() {
           sub="Meridian's route engine evaluates every viable path for your cargo — across modes, borders, and trade regimes — and ranks them by cost, speed, and risk. No guesswork."
           cta={{ label: "Start free trial", href: "/get-started" }}
           ctaSecondary={{ label: "Talk to sales", href: "/contact" }}
+          /*
+           * ── MEDIA ──────────────────────────────────────────────
+           * Paste your image or video URL in one of the props below.
+           * Examples:
+           *   mediaSrc={{ image: "https://cdn.example.com/logistics.jpg" }}
+           *   mediaSrc={{ video: "/videos/logistics-hero.mp4" }}
+           */
+          mediaSrc={{}}
         />
 
         {/* How it works */}
@@ -103,26 +112,50 @@ function RouteMockup() {
   );
 }
 
-/* ── Shared section components ── */
-export function PageHero({ tag, heading, sub, cta, ctaSecondary }) {
+/* ── Shared section components ─────────────────────────────────────────────── */
+
+/**
+ * PageHero — used by Logistics, Systems, Securities pages.
+ *
+ * mediaSrc prop:
+ *   { image: "URL" }  →  shows a background image
+ *   { video: "URL" }  →  shows a looping background video
+ *   {}                →  shows placeholder (default)
+ */
+export function PageHero({ tag, heading, sub, cta, ctaSecondary, mediaSrc = {} }) {
   return (
-    <section style={{ padding: "80px 28px 100px", borderBottom: "1px solid var(--border)" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        <span className="eyebrow" style={{ marginBottom: 28, display: "flex" }}>{tag}</span>
-        <h1 className="text-h1" style={{ maxWidth: 780, marginBottom: 32 }}>{heading}</h1>
-        <p className="text-body-lg" style={{ color: "var(--text-2)", maxWidth: 520, marginBottom: 48 }}>{sub}</p>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <Link href={cta.href} style={{ textDecoration: "none" }}>
-            <button className="btn btn-primary" style={{ fontSize: 14, padding: "13px 26px" }}>{cta.label}</button>
-          </Link>
-          {ctaSecondary && (
-            <Link href={ctaSecondary.href} style={{ textDecoration: "none" }}>
-              <button className="btn btn-outline" style={{ fontSize: 14, padding: "12px 24px" }}>{ctaSecondary.label}</button>
+    <>
+      {/*
+       * ── PAGE MEDIA BANNER ────────────────────────────────────────
+       * To add a hero image:  mediaSrc={{ image: "YOUR_IMAGE_URL" }}
+       * To add a hero video:  mediaSrc={{ video: "YOUR_VIDEO_URL" }}
+       * Paste the URL in the component that calls <PageHero> above.
+       * ─────────────────────────────────────────────────────────────
+       */}
+      <PageMediaBanner
+        imageSrc={mediaSrc.image || "https://www.shutterstock.com/image-illustration/elegant-abstract-smooth-black-background-600nw-2686662953.jpg"}
+        videoSrc={mediaSrc.video || ""}
+        height="320px"
+      />
+
+      <section style={{ padding: "64px 28px 100px", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <span className="eyebrow" style={{ marginBottom: 28, display: "flex" }}>{tag}</span>
+          <h1 className="text-h1" style={{ maxWidth: 780, marginBottom: 32 }}>{heading}</h1>
+          <p className="text-body-lg" style={{ color: "var(--text-2)", maxWidth: 520, marginBottom: 48 }}>{sub}</p>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <Link href={cta.href} style={{ textDecoration: "none" }}>
+              <button className="btn btn-primary" style={{ fontSize: 14, padding: "13px 26px" }}>{cta.label}</button>
             </Link>
-          )}
+            {ctaSecondary && (
+              <Link href={ctaSecondary.href} style={{ textDecoration: "none" }}>
+                <button className="btn btn-outline" style={{ fontSize: 14, padding: "12px 24px" }}>{ctaSecondary.label}</button>
+              </Link>
+            )}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
 

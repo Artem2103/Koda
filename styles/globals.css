@@ -5,12 +5,12 @@
 
 /* ─── DESIGN TOKENS ──────────────────────────────────────────────────────────── */
 :root {
-  --bg:          #000000;   /* main background */
-  --bg-1:        #0A0A0A;   /* section background */
-  --bg-2:        #111111;   /* elevated surfaces */
-  --bg-3:        #1A1A1A;   /* hover / secondary */
-  --border:      #1F1F1F;   /* standard borders */
-  --border-hi:   #333333;   /* hover / focus borders */
+  --bg:          #000000;
+  --bg-1:        #0A0A0A;
+  --bg-2:        #111111;
+  --bg-3:        #1A1A1A;
+  --border:      #1F1F1F;
+  --border-hi:   #333333;
   --text:        #FFFFFF;
   --text-2:      #A8A8A8;
   --text-3:      #555555;
@@ -18,6 +18,7 @@
   --font-display: 'Syne', sans-serif;
   --font-body:    'DM Sans', sans-serif;
   --radius:       2px;
+  --radius-sm:    4px;   /* ← was missing; used throughout components */
   --max-w:        1200px;
 }
 
@@ -40,49 +41,56 @@ body {
 ::-webkit-scrollbar-thumb  { background: var(--border-hi); }
 
 /* ─── TYPOGRAPHY ─────────────────────────────────────────────────────────────── */
-.t-display {
+.t-display,
+.text-display {
   font-family: var(--font-display);
   font-size: clamp(64px, 10.5vw, 148px);
   font-weight: 800;
   line-height: 0.93;
   letter-spacing: -0.04em;
 }
-.t-h1 {
+.t-h1,
+.text-h1 {
   font-family: var(--font-display);
   font-size: clamp(38px, 5.5vw, 76px);
   font-weight: 700;
   line-height: 1.0;
   letter-spacing: -0.03em;
 }
-.t-h2 {
+.t-h2,
+.text-h2 {
   font-family: var(--font-display);
   font-size: clamp(26px, 3.5vw, 48px);
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.022em;
 }
-.t-h3 {
+.t-h3,
+.text-h3 {
   font-family: var(--font-display);
   font-size: clamp(18px, 2vw, 26px);
   font-weight: 600;
   line-height: 1.15;
   letter-spacing: -0.014em;
 }
-.t-body-lg {
+.t-body-lg,
+.text-body-lg {
   font-family: var(--font-body);
   font-size: 16px;
   font-weight: 300;
   line-height: 1.8;
   color: var(--text-2);
 }
-.t-body {
+.t-body,
+.text-body {
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 400;
   line-height: 1.75;
   color: var(--text-2);
 }
-.t-label {
+.t-label,
+.text-label {
   font-family: var(--font-body);
   font-size: 10px;
   font-weight: 500;
@@ -118,6 +126,9 @@ body {
 /* ─── LAYOUT ─────────────────────────────────────────────────────────────────── */
 .container { max-width: var(--max-w); margin: 0 auto; padding: 0 32px; }
 
+/* Section padding helper used across department pages */
+.section { padding: 100px 28px; }
+
 /* ─── BUTTONS ────────────────────────────────────────────────────────────────── */
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
@@ -129,6 +140,14 @@ body {
 }
 .btn-primary  { background: #FFFFFF; color: #000000; padding: 11px 22px; }
 .btn-primary:hover { background: #E0E0E0; }
+
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-hi);
+  padding: 10px 21px;
+}
+.btn-outline:hover { color: var(--text); border-color: #666; }
 
 .btn-secondary { background: transparent; color: var(--text-2); border: 1px solid var(--border-hi); padding: 10px 21px; }
 .btn-secondary:hover { color: var(--text); border-color: #555; }

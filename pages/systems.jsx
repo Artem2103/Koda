@@ -15,6 +15,13 @@ export default function SystemsPage() {
           sub="Meridian Systems gives you a complete financial picture of any trade lane — duties, taxes, handling charges, FX exposure, and supplier benchmarks — before a single order is placed."
           cta={{ label: "Start free trial", href: "/get-started" }}
           ctaSecondary={{ label: "Talk to sales", href: "/contact" }}
+          /*
+           * ── MEDIA ──────────────────────────────────────────────
+           * mediaSrc={{ image: "YOUR_IMAGE_URL" }}
+           * mediaSrc={{ video: "YOUR_VIDEO_URL" }}
+           */
+          mediaSrc={{ image: "https://www.shutterstock.com/image-illustration/elegant-abstract-smooth-black-background-600nw-2686662953.jpg"}}
+          height="320px"
         />
 
         {/* Cost breakdown callout */}

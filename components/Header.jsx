@@ -101,7 +101,7 @@ export default function Header() {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {user ? (
             /* ── Logged-in user pill ── */
-            <div ref={menuRef} style={{ position: "relative" }}>
+            <div ref={menuRef} style={{ position: "relative", zIndex: 1100 }}>
               <button
                 onClick={() => setMenuOpen((o) => !o)}
                 style={{
@@ -139,13 +139,17 @@ export default function Header() {
                 </svg>
               </button>
 
-              {/* Dropdown */}
+              {/* ── Dropdown — opens downward, floats over everything via z-index ── */}
               {menuOpen && (
                 <div style={{
-                  position: "absolute", top: "calc(100% + 8px)", right: 0,
+                  position: "absolute",
+                  top: "calc(100% + 8px)",
+                  right: 0,
+                  zIndex: 9999,
                   background: "var(--bg-2)", border: "1px solid var(--border-hi)",
                   borderRadius: "var(--radius)", minWidth: 180,
                   overflow: "hidden",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
                   animation: "fadeUp 0.2s cubic-bezier(0.16,1,0.3,1) both",
                 }}>
                   <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>

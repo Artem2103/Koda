@@ -15,6 +15,12 @@ export default function SecuritiesPage() {
           sub="Meridian Securities monitors sanctions lists, geopolitical signals, and corridor risk in real time — and tells you exactly what to do about it, before your shipment is in the air."
           cta={{ label: "Start free trial", href: "/get-started" }}
           ctaSecondary={{ label: "Talk to sales", href: "/contact" }}
+          /*
+           * ── MEDIA ──────────────────────────────────────────────
+           * mediaSrc={{ image: "YOUR_IMAGE_URL" }}
+           * mediaSrc={{ video: "YOUR_VIDEO_URL" }}
+           */
+          mediaSrc={{ image: "https://www.shutterstock.com/image-illustration/elegant-abstract-smooth-black-background-600nw-2686662953.jpg"}}
         />
 
         {/* Risk callout */}
@@ -44,10 +50,7 @@ export default function SecuritiesPage() {
         </div>
 
         <FeaturesGrid features={SECURITIES_FEATURES} />
-
-        {/* Risk examples */}
         <RiskExamples />
-
         <DeptCTA
           heading="Know your exposure before you move."
           sub="Live sanctions screening, geopolitical risk feed, and compliance automation. Free for 14 days."
