@@ -1,442 +1,365 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import ScrollReveal from "@/components/ui/ScrollReveal";
 
-/* ─── Trade routes data ─────────────────────────────────────────────────────── */
-const ROUTES = [
-  {
-    id: "rot-sha",
-    from: "Rotterdam",
-    to: "Shanghai",
-    coords: [[4.4792, 51.9225], [121.4737, 31.2304]],
-    type: "Sea",
-    days: 28,
-    volume: "$1.2B/mo",
-  },
-  {
-    id: "dxb-bom",
-    from: "Dubai",
-    to: "Mumbai",
-    coords: [[55.2708, 25.2048], [72.8777, 19.076]],
-    type: "Sea",
-    days: 4,
-    volume: "$890M/mo",
-  },
-  {
-    id: "sin-lax",
-    from: "Singapore",
-    to: "Los Angeles",
-    coords: [[103.8198, 1.3521], [-118.2721, 33.7405]],
-    type: "Sea",
-    days: 18,
-    volume: "$2.1B/mo",
-  },
-  {
-    id: "rot-nyc",
-    from: "Rotterdam",
-    to: "New York",
-    coords: [[4.4792, 51.9225], [-74.0059, 40.6413]],
-    type: "Sea",
-    days: 9,
-    volume: "$980M/mo",
-  },
-  {
-    id: "sha-nbo",
-    from: "Shanghai",
-    to: "Nairobi",
-    coords: [[121.4737, 31.2304], [36.8219, -1.2921]],
-    type: "Sea",
-    days: 22,
-    volume: "$340M/mo",
-  },
-  {
-    id: "dxb-rot",
-    from: "Dubai",
-    to: "Rotterdam",
-    coords: [[55.2708, 25.2048], [4.4792, 51.9225]],
-    type: "Sea",
-    days: 12,
-    volume: "$670M/mo",
-  },
-  {
-    id: "hkg-syd",
-    from: "Hong Kong",
-    to: "Sydney",
-    coords: [[114.1694, 22.3193], [151.2093, -33.8688]],
-    type: "Sea",
-    days: 12,
-    volume: "$760M/mo",
-  },
-  {
-    id: "hmb-sin",
-    from: "Hamburg",
-    to: "Singapore",
-    coords: [[9.9937, 53.5511], [103.8198, 1.3521]],
-    type: "Sea",
-    days: 20,
-    volume: "$1.1B/mo",
-  },
-  {
-    id: "santos-rot",
-    from: "Santos",
-    to: "Rotterdam",
-    coords: [[-46.3289, -23.9608], [4.4792, 51.9225]],
-    type: "Sea",
-    days: 16,
-    volume: "$540M/mo",
-  },
-  {
-    id: "bus-lax",
-    from: "Busan",
-    to: "Los Angeles",
-    coords: [[129.0756, 35.1796], [-118.2721, 33.7405]],
-    type: "Sea",
-    days: 14,
-    volume: "$1.6B/mo",
-  },
-  {
-    id: "jnb-dxb",
-    from: "Johannesburg",
-    to: "Dubai",
-    coords: [[28.0473, -26.2041], [55.2708, 25.2048]],
-    type: "Air",
-    days: 1,
-    volume: "$410M/mo",
-  },
-  {
-    id: "ist-mum",
-    from: "Istanbul",
-    to: "Mumbai",
-    coords: [[28.9784, 41.0082], [72.8777, 19.076]],
-    type: "Sea",
-    days: 10,
-    volume: "$620M/mo",
-  },
-  {
-    id: "van-sha",
-    from: "Vancouver",
-    to: "Shanghai",
-    coords: [[-123.1207, 49.2827], [121.4737, 31.2304]],
-    type: "Sea",
-    days: 13,
-    volume: "$980M/mo",
-  },
-  {
-    id: "mel-sin",
-    from: "Melbourne",
-    to: "Singapore",
-    coords: [[144.9631, -37.8136], [103.8198, 1.3521]],
-    type: "Sea",
-    days: 9,
-    volume: "$450M/mo",
-  },
-  {
-    id: "pan-nyc",
-    from: "Panama City",
-    to: "New York",
-    coords: [[-79.5167, 8.9833], [-74.0059, 40.6413]],
-    type: "Sea",
-    days: 6,
-    volume: "$720M/mo",
-  },
-  {
-    id: "tko-sin",
-    from: "Tokyo",
-    to: "Singapore",
-    coords: [[139.6917, 35.6895], [103.8198, 1.3521]],
-    type: "Sea",
-    days: 11,
-    volume: "$1.3B/mo",
-  },
+/* ═══════════════════════════════════════════════════════════════
+   ROUTE COLORS  — one per rank slot
+═══════════════════════════════════════════════════════════════ */
+const ROUTE_COLORS = ["#FF4D4D", "#4DA6FF", "#4DFF91", "#FFD700", "#FF9F4D"];
+
+// SSR-safe number formatter — toLocaleString() differs between Node and browser
+const fmtNum = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+/* ═══════════════════════════════════════════════════════════════
+   COUNTRY DATA  – 28 countries, each with a main port/hub
+═══════════════════════════════════════════════════════════════ */
+const COUNTRIES = {
+  vietnam:     { name: "Vietnam",       lat: 10.82,  lng: 106.63, port: "Ho Chi Minh City" },
+  ukraine:     { name: "Ukraine",       lat: 46.48,  lng: 30.74,  port: "Odesa"            },
+  austria:     { name: "Austria",       lat: 48.21,  lng: 16.37,  port: "Vienna (Rail)"    },
+  poland:      { name: "Poland",        lat: 54.35,  lng: 18.63,  port: "Gdańsk"           },
+  china:       { name: "China",         lat: 31.23,  lng: 121.47, port: "Shanghai"         },
+  germany:     { name: "Germany",       lat: 53.55,  lng: 9.99,   port: "Hamburg"          },
+  netherlands: { name: "Netherlands",   lat: 51.92,  lng: 4.48,   port: "Rotterdam"        },
+  singapore:   { name: "Singapore",     lat: 1.35,   lng: 103.82, port: "Singapore"        },
+  uae:         { name: "UAE",           lat: 25.20,  lng: 55.27,  port: "Dubai"            },
+  india:       { name: "India",         lat: 19.08,  lng: 72.88,  port: "Mumbai"           },
+  turkey:      { name: "Turkey",        lat: 41.01,  lng: 28.95,  port: "Istanbul"         },
+  egypt:       { name: "Egypt",         lat: 31.21,  lng: 29.94,  port: "Alexandria"       },
+  italy:       { name: "Italy",         lat: 44.41,  lng: 8.93,   port: "Genova"           },
+  malaysia:    { name: "Malaysia",      lat: 3.00,   lng: 101.39, port: "Port Klang"       },
+  southkorea:  { name: "South Korea",   lat: 35.10,  lng: 129.03, port: "Busan"            },
+  japan:       { name: "Japan",         lat: 35.69,  lng: 139.69, port: "Tokyo"            },
+  russia:      { name: "Russia",        lat: 59.95,  lng: 30.32,  port: "St. Petersburg"   },
+  greece:      { name: "Greece",        lat: 37.94,  lng: 23.63,  port: "Piraeus"          },
+  france:      { name: "France",        lat: 43.30,  lng: 5.38,   port: "Marseille"        },
+  spain:       { name: "Spain",         lat: 41.39,  lng: 2.16,   port: "Barcelona"        },
+  kenya:       { name: "Kenya",         lat: -4.05,  lng: 39.67,  port: "Mombasa"          },
+  southafrica: { name: "South Africa",  lat: -29.86, lng: 31.03,  port: "Durban"           },
+  usa:         { name: "USA",           lat: 33.74,  lng: -118.27,port: "Los Angeles"      },
+  brazil:      { name: "Brazil",        lat: -23.96, lng: -46.31, port: "Santos"           },
+  australia:   { name: "Australia",     lat: -33.87, lng: 151.20, port: "Sydney"           },
+  srilanka:    { name: "Sri Lanka",     lat: 6.93,   lng: 79.85,  port: "Colombo"          },
+  pakistan:    { name: "Pakistan",      lat: 24.86,  lng: 66.99,  port: "Karachi"          },
+  bangladesh:  { name: "Bangladesh",    lat: 22.33,  lng: 91.83,  port: "Chittagong"       },
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   LEG DATA  – [originKey, destKey, costUSD, transitDays]
+═══════════════════════════════════════════════════════════════ */
+const LEG_DEFINITIONS = [
+  ["vietnam", "singapore",  380,  3], ["vietnam", "china",      420,  4],
+  ["vietnam", "malaysia",   300,  2], ["vietnam", "india",      700,  8],
+  ["vietnam", "uae",       1150, 13], ["vietnam", "southkorea", 600,  5],
+  ["vietnam", "japan",      700,  6], ["vietnam", "bangladesh", 400,  4],
+  ["vietnam", "australia", 1200, 14],
+  ["singapore", "malaysia",    180,  1], ["singapore", "india",       550,  6],
+  ["singapore", "srilanka",    400,  5], ["singapore", "uae",         900,  9],
+  ["singapore", "egypt",      1400, 14], ["singapore", "netherlands", 2200, 22],
+  ["singapore", "germany",    2300, 23], ["singapore", "southkorea",  550,  5],
+  ["singapore", "japan",       650,  6], ["singapore", "australia",  1000, 10],
+  ["singapore", "kenya",      1100, 12], ["singapore", "china",       380,  4],
+  ["china", "southkorea",  280,  2], ["china", "japan",        300,  2],
+  ["china", "india",       750,  8], ["china", "uae",         1250, 13],
+  ["china", "netherlands",1900, 21], ["china", "germany",    2000, 22],
+  ["china", "usa",        2100, 14], ["china", "australia",  1150, 12],
+  ["india", "uae",        450,  5], ["india", "srilanka",    250,  2],
+  ["india", "pakistan",   300,  3], ["india", "egypt",       850,  9],
+  ["india", "kenya",      700,  7], ["india", "malaysia",    500,  5],
+  ["uae", "egypt",        600,  5], ["uae", "turkey",        700,  6],
+  ["uae", "greece",       850,  8], ["uae", "italy",         950,  9],
+  ["uae", "netherlands", 1100, 10], ["uae", "germany",      1200, 11],
+  ["uae", "ukraine",      950,  9], ["uae", "poland",       1050, 10],
+  ["uae", "austria",     1100, 11], ["uae", "kenya",         600,  5],
+  ["uae", "southafrica", 1150, 13], ["uae", "russia",       1050, 10],
+  ["uae", "france",      1200, 11], ["uae", "spain",        1250, 12],
+  ["uae", "pakistan",     350,  4],
+  ["egypt", "turkey",      500,  4], ["egypt", "greece",      400,  3],
+  ["egypt", "italy",       600,  5], ["egypt", "netherlands", 900,  9],
+  ["egypt", "germany",     950,  9], ["egypt", "ukraine",     750,  7],
+  ["egypt", "poland",      850,  8], ["egypt", "austria",     900,  9],
+  ["egypt", "france",      750,  7], ["egypt", "spain",       750,  7],
+  ["egypt", "kenya",       700,  7],
+  ["turkey", "greece",     300,  2], ["turkey", "italy",      500,  4],
+  ["turkey", "netherlands",750,  7], ["turkey", "germany",    800,  7],
+  ["turkey", "ukraine",    400,  4], ["turkey", "poland",     500,  5],
+  ["turkey", "austria",    500,  4], ["turkey", "russia",     500,  5],
+  ["turkey", "france",     650,  6], ["turkey", "spain",      700,  7],
+  ["greece", "italy",      400,  3], ["greece", "netherlands", 650,  6],
+  ["greece", "germany",    700,  6], ["greece", "ukraine",    550,  5],
+  ["greece", "poland",     650,  6], ["greece", "austria",    600,  5],
+  ["greece", "france",     550,  5], ["greece", "spain",      600,  5],
+  ["italy", "france",      250,  2], ["italy", "spain",       350,  3],
+  ["italy", "netherlands", 450,  4], ["italy", "germany",     400,  3],
+  ["italy", "austria",     250,  2], ["italy", "ukraine",     600,  6],
+  ["italy", "poland",      550,  5],
+  ["netherlands", "germany",  150,  1], ["netherlands", "france",   250,  2],
+  ["netherlands", "spain",    400,  4], ["netherlands", "poland",   300,  3],
+  ["netherlands", "austria",  350,  3], ["netherlands", "ukraine",  500,  5],
+  ["netherlands", "russia",   550,  5],
+  ["germany", "france",   200,  2], ["germany", "spain",     350,  3],
+  ["germany", "poland",   250,  2], ["germany", "austria",   200,  2],
+  ["germany", "ukraine",  450,  4], ["germany", "russia",    500,  5],
+  ["poland", "austria",   250,  2], ["poland", "ukraine",    300,  3],
+  ["poland", "russia",    400,  4],
+  ["austria", "ukraine",  350,  3], ["austria", "italy",     250,  2],
+  ["austria", "france",   350,  3],
+  ["usa", "brazil",      1500, 14], ["usa", "netherlands", 1200,  8],
+  ["usa", "germany",     1300,  9], ["usa", "japan",       1100, 10],
+  ["usa", "southkorea",  1050,  9],
+  ["kenya", "southafrica", 800, 8], ["kenya", "egypt",       700, 7],
+  ["australia", "japan",       950, 10], ["australia", "southkorea", 1000, 11],
+  ["malaysia", "srilanka",     350,  4],
+  ["southkorea", "japan",      200,  2],
 ];
 
-const PORTS = [
-  { id: "rot",  name: "Rotterdam",    coords: [4.4792,   51.9225], rank: 1  },
-  { id: "sha",  name: "Shanghai",     coords: [121.4737, 31.2304], rank: 2  },
-  { id: "sin",  name: "Singapore",    coords: [103.8198,  1.3521], rank: 3  },
-  { id: "dxb",  name: "Dubai",        coords: [55.2708,  25.2048], rank: 5  },
-  { id: "nyc",  name: "New York",     coords: [-74.0059, 40.6413], rank: 4  },
-  { id: "lax",  name: "Los Angeles",  coords: [-118.2721,33.7405], rank: 6  },
-  { id: "nbo",  name: "Nairobi",      coords: [36.8219,  -1.2921], rank: 14 },
-  { id: "hkg", name: "Hong Kong", coords: [114.1694, 22.3193], rank: 8 },
-  { id: "hmb", name: "Hamburg", coords: [9.9937, 53.5511], rank: 11 },
-  { id: "sts", name: "Santos", coords: [-46.3289, -23.9608], rank: 12 },
-  { id: "bus", name: "Busan", coords: [129.0756, 35.1796], rank: 7 },
-  { id: "jnb", name: "Johannesburg", coords: [28.0473, -26.2041], rank: 20 },
-  { id: "ist", name: "Istanbul", coords: [28.9784, 41.0082], rank: 13 },
-  { id: "van", name: "Vancouver", coords: [-123.1207, 49.2827], rank: 15 },
-  { id: "mel", name: "Melbourne", coords: [144.9631, -37.8136], rank: 18 },
-  { id: "pan", name: "Panama City", coords: [-79.5167, 8.9833], rank: 10 },
-  { id: "tko", name: "Tokyo", coords: [139.6917, 35.6895], rank: 9 },
-];
-
-/* ─── Build GeoJSON ──────────────────────────────────────────────────────────── */
-function buildRouteGeoJSON() {
-  return {
-    type: "FeatureCollection",
-    features: ROUTES.map((r) => ({
-      type: "Feature",
-      properties: { id: r.id, from: r.from, to: r.to },
-      geometry: { type: "LineString", coordinates: r.coords },
-    })),
-  };
+const LEGS = {};
+for (const [a, b, cost, days] of LEG_DEFINITIONS) {
+  if (!LEGS[a]) LEGS[a] = {};
+  if (!LEGS[b]) LEGS[b] = {};
+  LEGS[a][b] = [cost, days];
+  LEGS[b][a] = [cost, days];
 }
 
-function buildPortGeoJSON() {
-  return {
-    type: "FeatureCollection",
-    features: PORTS.map((p) => ({
-      type: "Feature",
-      properties: { id: p.id, name: p.name, rank: p.rank },
-      geometry: { type: "Point", coordinates: p.coords },
-    })),
-  };
-}
+const TRANSSHIP_COST = 120;
+const TRANSSHIP_DAYS = 2;
 
-/* ─── Map component ─────────────────────────────────────────────────────────── */
-function MapboxMap({ onRouteClick }) {
-  const containerRef = useRef(null);
-  const mapRef = useRef(null);
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    let mapboxgl;
-    let map;
-
-    async function init() {
-      try {
-        mapboxgl = (await import("mapbox-gl")).default;
-
-        const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-        if (!token) {
-          setError("no_token");
-          return;
-        }
-
-        mapboxgl.accessToken = token;
-
-        map = new mapboxgl.Map({
-          container: containerRef.current,
-          style: "mapbox://styles/mapbox/dark-v11",
-          center: [30, 20],
-          zoom: 1.8,
-          projection: "globe",
-          antialias: true,
-        });
-
-        mapRef.current = map;
-
-        map.on("style.load", () => {
-          /* Atmosphere / fog */
-          map.setFog({
-            color: "rgb(10, 10, 10)",
-            "high-color": "rgb(15, 15, 15)",
-            "horizon-blend": 0.06,
-            "space-color": "rgb(0, 0, 0)",
-            "star-intensity": 0.25,
-          });
-
-          /* Route lines */
-          map.addSource("routes", { type: "geojson", data: buildRouteGeoJSON() });
-
-          map.addLayer({
-            id: "routes-glow",
-            type: "line",
-            source: "routes",
-            paint: {
-              "line-color": "#ffffff",
-              "line-width": 6,
-              "line-opacity": 0.04,
-            },
-          });
-
-          map.addLayer({
-            id: "routes-line",
-            type: "line",
-            source: "routes",
-            paint: {
-              "line-color": "#ffffff",
-              "line-width": 1.2,
-              "line-opacity": 0.55,
-              "line-dasharray": [6, 4],
-            },
-          });
-
-          map.addLayer({
-            id: "routes-hover",
-            type: "line",
-            source: "routes",
-            paint: {
-              "line-color": "#ffffff",
-              "line-width": 2.5,
-              "line-opacity": 0,
-            },
-          });
-
-          /* Port dots */
-          map.addSource("ports", { type: "geojson", data: buildPortGeoJSON() });
-
-          map.addLayer({
-            id: "ports-ring",
-            type: "circle",
-            source: "ports",
-            paint: {
-              "circle-radius": 9,
-              "circle-color": "transparent",
-              "circle-stroke-width": 1,
-              "circle-stroke-color": "rgba(255,255,255,0.25)",
-            },
-          });
-
-          map.addLayer({
-            id: "ports-dot",
-            type: "circle",
-            source: "ports",
-            paint: {
-              "circle-radius": 3.5,
-              "circle-color": "#ffffff",
-              "circle-opacity": 0.9,
-            },
-          });
-
-          /* Port labels */
-          map.addLayer({
-            id: "ports-label",
-            type: "symbol",
-            source: "ports",
-            layout: {
-              "text-field": ["get", "name"],
-              "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Regular"],
-              "text-size": 10,
-              "text-offset": [0, 1.6],
-              "text-anchor": "top",
-              "text-letter-spacing": 0.1,
-            },
-            paint: {
-              "text-color": "rgba(255,255,255,0.55)",
-              "text-halo-color": "rgba(0,0,0,0.9)",
-              "text-halo-width": 1.5,
-            },
-          });
-
-          setLoaded(true);
-        });
-
-        /* Route hover */
-        map.on("mousemove", "routes-hover", (e) => {
-          map.getCanvas().style.cursor = "pointer";
-          map.setPaintProperty("routes-hover", "line-opacity", ["case",
-            ["==", ["get", "id"], e.features[0].properties.id],
-            0.9, 0
-          ]);
-        });
-        map.on("mouseleave", "routes-hover", () => {
-          map.getCanvas().style.cursor = "";
-          map.setPaintProperty("routes-hover", "line-opacity", 0);
-        });
-
-        /* Route click */
-        map.on("click", "routes-line", (e) => {
-          if (!e.features.length) return;
-          const { id } = e.features[0].properties;
-          const route = ROUTES.find((r) => r.id === id);
-          if (route && onRouteClick) onRouteClick(route);
-        });
-
-        /* Navigation control */
-        map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
-
-      } catch (err) {
-        console.error(err);
-        setError("init_error");
+function generateAllRoutes(origin, dest) {
+  if (!origin || !dest || origin === dest) return [];
+  const routes = [];
+  if (LEGS[origin]?.[dest]) {
+    const [cost, days] = LEGS[origin][dest];
+    routes.push({ stops: [origin, dest], cost, days });
+  }
+  for (const h of Object.keys(LEGS)) {
+    if (h === origin || h === dest) continue;
+    if (LEGS[origin]?.[h] && LEGS[h]?.[dest]) {
+      const [c1, d1] = LEGS[origin][h];
+      const [c2, d2] = LEGS[h][dest];
+      routes.push({ stops: [origin, h, dest], cost: c1 + c2 + TRANSSHIP_COST, days: d1 + d2 + TRANSSHIP_DAYS });
+    }
+  }
+  for (const h1 of Object.keys(LEGS[origin] || {})) {
+    if (h1 === dest) continue;
+    for (const h2 of Object.keys(LEGS[h1] || {})) {
+      if (h2 === origin || h2 === dest || h2 === h1) continue;
+      if (LEGS[h2]?.[dest]) {
+        const [c1, d1] = LEGS[origin][h1];
+        const [c2, d2] = LEGS[h1][h2];
+        const [c3, d3] = LEGS[h2][dest];
+        routes.push({ stops: [origin, h1, h2, dest], cost: c1 + c2 + c3 + TRANSSHIP_COST * 2, days: d1 + d2 + d3 + TRANSSHIP_DAYS * 2 });
       }
     }
-
-    init();
-
-    return () => {
-      if (map) map.remove();
-    };
-  }, []);
-
-  if (error === "no_token") {
-    return (
-      <div style={{
-        width: "100%", height: "100%",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        background: "var(--bg-2)", border: "1px solid var(--border)",
-        gap: 16,
-      }}>
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-          <rect x="2" y="2" width="28" height="28" stroke="var(--border-hi)" strokeWidth="1.4"/>
-          <path d="M16 10v8M16 22v1" stroke="var(--text-3)" strokeWidth="1.6" strokeLinecap="round"/>
-        </svg>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--text-3)", textAlign: "center", lineHeight: 1.8, maxWidth: 340 }}>
-          Add <code style={{ background: "var(--bg-3)", padding: "1px 6px", borderRadius: 2, color: "var(--text-2)" }}>NEXT_PUBLIC_MAPBOX_TOKEN</code> to your <code style={{ background: "var(--bg-3)", padding: "1px 6px", borderRadius: 2, color: "var(--text-2)" }}>.env.local</code> file to activate the map.
-        </p>
-      </div>
-    );
   }
-
-  if (error) {
-    return (
-      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-2)" }}>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--text-3)" }}>Map failed to load.</p>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      {/* Mapbox CSS */}
-      <style>{`
-        .mapboxgl-ctrl-group {
-          background: var(--bg-2) !important;
-          border: 1px solid var(--border) !important;
-          border-radius: 2px !important;
-          box-shadow: none !important;
-        }
-        .mapboxgl-ctrl-group button {
-          background: transparent !important;
-          border: none !important;
-          border-bottom: 1px solid var(--border) !important;
-        }
-        .mapboxgl-ctrl-group button:last-child { border-bottom: none !important; }
-        .mapboxgl-ctrl-icon { filter: invert(1) brightness(0.5) !important; }
-        .mapboxgl-ctrl-icon:hover { filter: invert(1) brightness(0.8) !important; }
-        .mapboxgl-ctrl-attrib { display: none !important; }
-        .mapboxgl-ctrl-logo { display: none !important; }
-      `}</style>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
-      {!loaded && (
-        <div style={{
-          position: "absolute", inset: 0,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          background: "var(--bg)",
-        }}>
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--text-3)", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-            Loading map…
-          </span>
-        </div>
-      )}
-    </>
-  );
+  return routes;
 }
 
-/* ─── Stats strip ─────────────────────────────────────────────────────────────── */
-const MAP_STATS = [
-  { value: "160+",   label: "Countries" },
-  { value: "2,400+", label: "Trade corridors" },
-  { value: "3,200+", label: "Ports monitored" },
-  { value: "800+",   label: "Carriers tracked" },
-];
+function computeEfficiency(routes, costWeight) {
+  if (!routes.length) return [];
+  const timeWeight = 1 - costWeight;
+  const costs = routes.map(r => r.cost);
+  const days  = routes.map(r => r.days);
+  const minC = Math.min(...costs), maxC = Math.max(...costs);
+  const minD = Math.min(...days),  maxD = Math.max(...days);
+  return routes.map(r => {
+    const cn    = maxC === minC ? 0 : (r.cost - minC) / (maxC - minC);
+    const dn    = maxD === minD ? 0 : (r.days - minD) / (maxD - minD);
+    const score = Math.round((1 - (costWeight * cn + timeWeight * dn)) * 100);
+    const grade = score >= 90 ? "A+" : score >= 80 ? "A" : score >= 70 ? "B+" : score >= 60 ? "B" : score >= 50 ? "C" : "D";
+    return { ...r, score, grade };
+  }).sort((a, b) => b.score - a.score);
+}
 
-/* ─── Page ──────────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   MAPBOX GLOBE COMPONENT
+
+   Two subtle bugs fixed vs the previous version:
+   1. `map` was a local async variable — if the component unmounted
+      before init() resolved, the cleanup ran before `map` was set,
+      so map.remove() was never called and the canvas stayed in the DOM.
+      Fix: store the instance in a ref so cleanup always finds it.
+   2. Mapbox CSS was never injected, causing the black canvas.
+      Fix: inject the stylesheet link once into <head>.
+═══════════════════════════════════════════════════════════════ */
+function RouteGlobe({ routes }) {
+  const containerRef = useRef(null);
+  const mapRef       = useRef(null); // ← persists across async boundary
+
+  useEffect(() => {
+    if (!containerRef.current || routes.length === 0) return;
+
+    // Guard: if component unmounts before async init finishes, skip mount
+    let cancelled = false;
+
+    const init = async () => {
+      // ── Inject Mapbox CSS once ──────────────────────────
+      if (!document.getElementById("mapbox-gl-css")) {
+        const link = document.createElement("link");
+        link.id   = "mapbox-gl-css";
+        link.rel  = "stylesheet";
+        link.href = "https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.css";
+        document.head.appendChild(link);
+      }
+
+      const mapboxgl = (await import("mapbox-gl")).default;
+      if (cancelled) return; // unmounted while awaiting — bail out
+
+      mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+      const topRoute  = routes[0];
+      const startC    = COUNTRIES[topRoute.stops[0]];
+      const endC      = COUNTRIES[topRoute.stops[topRoute.stops.length - 1]];
+      const centerLng = (startC.lng + endC.lng) / 2;
+      const centerLat = (startC.lat + endC.lat) / 2;
+
+      const map = new mapboxgl.Map({
+        container: containerRef.current,
+        style: "mapbox://styles/mapbox/dark-v11",
+        center: [centerLng, centerLat],
+        zoom: 1.8,
+        projection: "globe",
+        antialias: true,
+      });
+
+      mapRef.current = map; // ← store immediately so cleanup can always reach it
+
+      map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+
+      map.on("load", () => {
+        if (cancelled) return;
+
+        map.setFog({
+          color: "rgb(8, 8, 18)",
+          "high-color": "rgb(18, 18, 45)",
+          "horizon-blend": 0.02,
+          "space-color": "rgb(4, 4, 12)",
+          "star-intensity": 0.7,
+        });
+
+        routes.slice(0, 5).forEach((route, routeIdx) => {
+          const color  = ROUTE_COLORS[routeIdx];
+          const coords = route.stops.map(s => [COUNTRIES[s].lng, COUNTRIES[s].lat]);
+
+          map.addSource(`route-${routeIdx}`, {
+            type: "geojson",
+            data: { type: "Feature", geometry: { type: "LineString", coordinates: coords } },
+          });
+
+          map.addLayer({
+            id: `route-glow-${routeIdx}`,
+            type: "line",
+            source: `route-${routeIdx}`,
+            layout: { "line-join": "round", "line-cap": "round" },
+            paint: { "line-color": color, "line-width": 7, "line-opacity": 0.15 },
+          });
+
+          map.addLayer({
+            id: `route-line-${routeIdx}`,
+            type: "line",
+            source: `route-${routeIdx}`,
+            layout: { "line-join": "round", "line-cap": "round" },
+            paint: { "line-color": color, "line-width": 2.5, "line-opacity": 0.95 },
+          });
+
+          map.addSource(`stops-${routeIdx}`, {
+            type: "geojson",
+            data: {
+              type: "FeatureCollection",
+              features: route.stops.map(stopKey => {
+                const c = COUNTRIES[stopKey];
+                return {
+                  type: "Feature",
+                  geometry: { type: "Point", coordinates: [c.lng, c.lat] },
+                  properties: { name: c.port },
+                };
+              }),
+            },
+          });
+
+          map.addLayer({
+            id: `stops-halo-${routeIdx}`,
+            type: "circle",
+            source: `stops-${routeIdx}`,
+            paint: { "circle-radius": 7, "circle-color": color, "circle-opacity": 0.2 },
+          });
+
+          map.addLayer({
+            id: `stops-dot-${routeIdx}`,
+            type: "circle",
+            source: `stops-${routeIdx}`,
+            paint: {
+              "circle-radius": 3.5,
+              "circle-color": color,
+              "circle-opacity": 1,
+              "circle-stroke-color": "#000",
+              "circle-stroke-width": 1.2,
+            },
+          });
+        });
+      });
+    };
+
+    init().catch(console.error);
+
+    return () => {
+      cancelled = true;                   // stop init() mid-flight if still running
+      if (mapRef.current) {
+        mapRef.current.remove();          // always fires now — ref not local variable
+        mapRef.current = null;
+      }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GRADE COLORS
+═══════════════════════════════════════════════════════════════ */
+const GRADE_COLOR = {
+  "A+": "#ffffff", "A": "#d4d4d4", "B+": "#a0a0a0",
+  "B":  "#777777", "C": "#555555", "D":  "#3a3a3a",
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGE
+═══════════════════════════════════════════════════════════════ */
 export default function TestPage() {
-  const [activeRoute, setActiveRoute] = useState(null);
+  const [origin,    setOrigin]    = useState("vietnam");
+  const [dest,      setDest]      = useState("ukraine");
+  const [sliderVal, setSliderVal] = useState(50);
+  const costWeight = 1 - sliderVal / 100;
+
+  const countryList = useMemo(
+    () => Object.entries(COUNTRIES).sort((a, b) => a[1].name.localeCompare(b[1].name)),
+    []
+  );
+
+  const allRoutes = useMemo(() => generateAllRoutes(origin, dest), [origin, dest]);
+  const scored    = useMemo(() => computeEfficiency(allRoutes, costWeight), [allRoutes, costWeight]);
+  const top5      = scored.slice(0, 5);
+
+  const priorityLabel = sliderVal < 30 ? "Cost-first" : sliderVal > 70 ? "Speed-first" : "Balanced";
+
+  // Changing origin or dest gives RouteGlobe a new key → full remount → no stale animations
+  const globeKey = `${origin}--${dest}`;
+
+  const selectStyle = {
+    background: "var(--bg)",
+    color: "var(--text)",
+    border: "1px solid var(--border-hi)",
+    borderRadius: "var(--radius-sm)",
+    padding: "12px 40px 12px 16px",
+    fontFamily: "var(--font-body)",
+    fontSize: 14,
+    cursor: "pointer",
+    appearance: "none",
+    WebkitAppearance: "none",
+    minWidth: 220,
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M1 3 L5 7 L9 3' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 14px center",
+  };
 
   return (
     <>
@@ -444,210 +367,270 @@ export default function TestPage() {
       <Header />
       <main style={{ paddingTop: 96 }}>
 
-        {/* ── Hero ───────────────────────────────────────────────────────────── */}
-        <section style={{ padding: "80px 28px 100px", borderBottom: "1px solid var(--border)" }}>
+        {/* ── Hero ───────────────────────────────────────────── */}
+        <section style={{ padding: "72px 28px 56px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-            <ScrollReveal delay={0}>
-              <span className="eyebrow" style={{ marginBottom: 28, display: "flex" }}>
-                Live Trade Intelligence
-              </span>
-            </ScrollReveal>
-            <ScrollReveal delay={1}>
-              <h1 className="text-h1" style={{ maxWidth: 820, marginBottom: 28 }}>
-                Every corridor.<br />Every port. Live.
-              </h1>
-            </ScrollReveal>
-            <ScrollReveal delay={2}>
-              <p className="text-body-lg" style={{ color: "var(--text-2)", maxWidth: 500, marginBottom: 48 }}>
-                Meridian's global trade map visualises over 2,400 active corridors in real
-                time — from container lanes to narrow-gauge emerging market routes.
-              </p>
-            </ScrollReveal>
-            <ScrollReveal delay={3} style={{ display: "flex", gap: 12 }}>
-              <a href="/get-started" style={{ textDecoration: "none" }}>
-                <button className="btn btn-primary" style={{ fontSize: 14, padding: "13px 26px" }}>
-                  Start free trial
-                </button>
-              </a>
-              <a href="/contact" style={{ textDecoration: "none" }}>
-                <button className="btn btn-outline" style={{ fontSize: 14, padding: "12px 24px" }}>
-                  Talk to sales
-                </button>
-              </a>
-            </ScrollReveal>
+            <span className="eyebrow" style={{ display: "flex", marginBottom: 20 }}>Route Efficiency Engine</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
+              <div>
+                <h1 className="text-h1" style={{ maxWidth: 600, marginBottom: 20 }}>
+                  Find the most<br />efficient route.
+                </h1>
+                <p className="text-body-lg" style={{ color: "var(--text-2)", maxWidth: 480 }}>
+                  Every path is scored across cost, speed, and transshipment burden.
+                  Tune your priority — the engine surfaces the top 5 routes.
+                </p>
+              </div>
+
+              {top5.length > 0 ? (
+                <div style={{ background: "var(--bg-1)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "24px 32px", minWidth: 220 }}>
+                  <p className="text-label" style={{ marginBottom: 10 }}>Best route score</p>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 56, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}>
+                    {top5[0].score}
+                    <span style={{ fontSize: 22, fontWeight: 700, marginLeft: 8, color: "var(--text-2)" }}>{top5[0].grade}</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 10, fontFamily: "var(--font-body)", lineHeight: 1.6 }}>
+                    {top5[0].stops.map(s => COUNTRIES[s].name).join(" → ")}
+                  </p>
+                  <p style={{ fontSize: 11, color: "var(--text-4)", marginTop: 4, fontFamily: "var(--font-body)" }}>
+                    ${fmtNum(top5[0].cost)} · {top5[0].days} days
+                  </p>
+                </div>
+              ) : (
+                <div style={{ background: "var(--bg-1)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "24px 32px", minWidth: 220 }}>
+                  <p className="text-label" style={{ marginBottom: 8 }}>No route found</p>
+                  <p style={{ fontSize: 12, color: "var(--text-3)", fontFamily: "var(--font-body)" }}>
+                    No direct or hub path exists between these countries.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </section>
 
-        {/* ── Map section ────────────────────────────────────────────────────── */}
-        <section style={{ borderBottom: "1px solid var(--border)", background: "var(--bg)" }}>
-          <div style={{ maxWidth: 1200, margin: "0 auto", padding: "72px 28px" }}>
+        {/* ── Controls ───────────────────────────────────────── */}
+        <section style={{ padding: "32px 28px", borderBottom: "1px solid var(--border)", background: "var(--bg-1)" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+            <div style={{ display: "flex", gap: 24, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <label className="text-label">Origin</label>
+                <select value={origin} onChange={e => setOrigin(e.target.value)} style={selectStyle}>
+                  {countryList.map(([key, c]) => (
+                    <option key={key} value={key}>{c.name} — {c.port}</option>
+                  ))}
+                </select>
+              </div>
 
-            {/* Section header */}
-            <div style={{
-              display: "flex", justifyContent: "space-between", alignItems: "flex-end",
-              marginBottom: 48, flexWrap: "wrap", gap: 24,
-              borderBottom: "1px solid var(--border)", paddingBottom: 36,
-            }}>
-              <ScrollReveal>
-                <span className="eyebrow" style={{ marginBottom: 16, display: "flex" }}>Global Coverage</span>
-                <h2 className="text-h2">
-                  160+ countries.<br />Every corridor mapped.
-                </h2>
-              </ScrollReveal>
-              <ScrollReveal delay={1}>
-                <p className="text-body-lg" style={{ color: "var(--text-2)", maxWidth: 380, textAlign: "right" }}>
-                  Meridian covers every major trade lane on earth — from high-volume container
-                  routes to narrow-gauge emerging market corridors. Click any route to inspect it.
-                </p>
-              </ScrollReveal>
-            </div>
+              <div style={{ paddingBottom: 13, color: "var(--text-4)", fontSize: 22, lineHeight: 1 }}>→</div>
 
-            {/* Map + sidebar layout */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 24, alignItems: "start" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <label className="text-label">Destination</label>
+                <select value={dest} onChange={e => setDest(e.target.value)} style={selectStyle}>
+                  {countryList.map(([key, c]) => (
+                    <option key={key} value={key}>{c.name} — {c.port}</option>
+                  ))}
+                </select>
+              </div>
 
-              {/* Map container */}
-              <ScrollReveal threshold={0.05} style={{ position: "relative", height: 540, background: "var(--bg-2)", border: "1px solid var(--border)" }}>
-                <MapboxMap onRouteClick={setActiveRoute} />
-              </ScrollReveal>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, minWidth: 260 }}>
+                <label className="text-label">
+                  Priority — <span style={{ color: "var(--text)" }}>{priorityLabel}</span>
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: 11, color: "var(--text-3)", whiteSpace: "nowrap" }}>Cheaper</span>
+                  <input type="range" min={0} max={100} value={sliderVal}
+                    onChange={e => setSliderVal(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: "#fff", cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: 11, color: "var(--text-3)", whiteSpace: "nowrap" }}>Faster</span>
+                </div>
+              </div>
 
-              {/* Sidebar */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-                {/* Active route panel */}
-                <ScrollReveal delay={1} style={{
-                  background: "var(--bg-1)", border: "1px solid var(--border)",
-                  padding: "28px 24px",
+              <div style={{ paddingBottom: 13 }}>
+                <span style={{
+                  fontSize: 12, fontFamily: "var(--font-display)", fontWeight: 700,
+                  background: "var(--bg-2)", border: "1px solid var(--border)",
+                  padding: "8px 16px", borderRadius: 3, color: "var(--text-2)",
                 }}>
-                  <p className="text-label" style={{ marginBottom: 16 }}>
-                    {activeRoute ? "Selected route" : "Click a route"}
-                  </p>
-                  {activeRoute ? (
-                    <>
-                      <div style={{
-                        fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700,
-                        letterSpacing: "-0.02em", marginBottom: 20, lineHeight: 1.2,
-                      }}>
-                        {activeRoute.from}<br />
-                        <span style={{ color: "var(--text-3)", fontSize: 14, fontWeight: 400 }}>↓</span><br />
-                        {activeRoute.to}
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        {[
-                          ["Mode",   activeRoute.type],
-                          ["Transit",`${activeRoute.days} days`],
-                          ["Volume", activeRoute.volume],
-                        ].map(([k, v]) => (
-                          <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontSize: 11, color: "var(--text-3)", fontFamily: "var(--font-body)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{k}</span>
-                            <span style={{ fontSize: 13, color: "var(--text)", fontFamily: "var(--font-body)", fontWeight: 500 }}>{v}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <button
-                        onClick={() => setActiveRoute(null)}
-                        style={{
-                          marginTop: 20, width: "100%", padding: "9px 0",
-                          background: "transparent", border: "1px solid var(--border)",
-                          color: "var(--text-3)", borderRadius: "var(--radius-sm)",
-                          fontFamily: "var(--font-body)", fontSize: 11, cursor: "pointer",
-                          letterSpacing: "0.06em", textTransform: "uppercase",
-                        }}
-                      >
-                        Clear
-                      </button>
-                    </>
-                  ) : (
-                    <p style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.75 }}>
-                      Select any trade lane on the map to inspect transit times, mode, and monthly volume.
-                    </p>
-                  )}
-                </ScrollReveal>
-
-                {/* Route list */}
-                <ScrollReveal delay={2} style={{ background: "var(--bg-1)", border: "1px solid var(--border)", padding: "24px" }}>
-                  <p className="text-label" style={{ marginBottom: 14 }}>Active corridors</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    {ROUTES.map((r) => (
-                      <button
-                        key={r.id}
-                        onClick={() => setActiveRoute(r)}
-                        style={{
-                          background: activeRoute?.id === r.id ? "var(--bg-3)" : "transparent",
-                          border: "none", borderRadius: "var(--radius-sm)",
-                          padding: "10px 10px", textAlign: "left", cursor: "pointer",
-                          transition: "background 0.12s",
-                          display: "flex", justifyContent: "space-between", alignItems: "center",
-                        }}
-                      >
-                        <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: activeRoute?.id === r.id ? "var(--text)" : "var(--text-2)" }}>
-                          {r.from} → {r.to}
-                        </span>
-                        <span style={{ fontFamily: "var(--font-body)", fontSize: 10, color: "var(--text-3)" }}>
-                          {r.days}d
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </ScrollReveal>
+                  {allRoutes.length} routes analysed
+                </span>
               </div>
             </div>
+          </div>
+        </section>
 
-            {/* Stats */}
-            <div style={{
-              display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
-              marginTop: 1, borderTop: "1px solid var(--border)", border: "1px solid var(--border)",
-            }}>
-              {MAP_STATS.map(({ value, label }, i) => (
-                <ScrollReveal key={i} delay={i} as="div" style={{
-                  padding: "32px 24px", textAlign: "center",
-                  borderRight: i < 3 ? "1px solid var(--border)" : "none",
+        {/* ── Globe + Rankings ───────────────────────────────── */}
+        <section style={{ borderBottom: "1px solid var(--border)" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 400px", height: 580 }}>
+
+            {/* Globe */}
+            <div style={{ borderRight: "1px solid var(--border)", position: "relative", height: 580, overflow: "hidden" }}>
+              {top5.length > 0 ? (
+                <RouteGlobe key={globeKey} routes={top5} />
+              ) : (
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-1)" }}>
+                  <p style={{ color: "var(--text-3)", fontSize: 14, fontFamily: "var(--font-body)" }}>
+                    Select two different countries to see routes
+                  </p>
+                </div>
+              )}
+
+              {/* Color legend overlay */}
+              {top5.length > 0 && (
+                <div style={{
+                  position: "absolute", bottom: 16, left: 16,
+                  display: "flex", flexDirection: "column", gap: 6,
+                  background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 6, padding: "12px 16px",
+                  pointerEvents: "none", zIndex: 10,
                 }}>
-                  <div style={{
-                    fontFamily: "var(--font-display)", fontSize: "clamp(22px, 3vw, 36px)",
-                    fontWeight: 800, letterSpacing: "-0.025em", lineHeight: 1, marginBottom: 6,
-                  }}>{value}</div>
-                  <p className="text-label" style={{ fontSize: 10 }}>{label}</p>
-                </ScrollReveal>
+                  {top5.map((route, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 20, height: 2.5, background: ROUTE_COLORS[i],
+                        borderRadius: 1, flexShrink: 0,
+                        boxShadow: `0 0 6px ${ROUTE_COLORS[i]}99`,
+                      }} />
+                      <span style={{ fontSize: 11, fontFamily: "var(--font-body)", color: ROUTE_COLORS[i], fontWeight: 600, letterSpacing: "0.01em" }}>
+                        #{i + 1} {route.stops.map(s => COUNTRIES[s].name).join(" → ")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Rankings */}
+            <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <div style={{ padding: "20px 28px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+                <p className="text-label">Top 5 Efficient Routes</p>
+                {top5.length > 0 && (
+                  <span style={{ fontSize: 11, color: "var(--text-4)", fontFamily: "var(--font-body)" }}>sorted by efficiency score</span>
+                )}
+              </div>
+
+              {top5.length === 0 && (
+                <div style={{ padding: "40px 28px" }}>
+                  <p style={{ fontSize: 13, color: "var(--text-3)", fontFamily: "var(--font-body)" }}>No viable routes found.</p>
+                </div>
+              )}
+
+              <div style={{ overflowY: "auto", flex: 1 }}>
+              {top5.map((route, i) => (
+                <RouteCard key={`${route.stops.join("-")}-${i}`} route={route} rank={i + 1} color={ROUTE_COLORS[i]} />
+              ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Methodology ────────────────────────────────────── */}
+        <section style={{ padding: "80px 28px", borderBottom: "1px solid var(--border)", background: "var(--bg-1)" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+            <span className="eyebrow" style={{ display: "flex", marginBottom: 20 }}>Methodology</span>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", border: "1px solid var(--border)" }}>
+              {[
+                { step: "01", title: "All paths enumerated", desc: "Direct, 1-hub, and 2-hub routes are generated across the port network. For most country pairs that yields 20–250+ candidate routes." },
+                { step: "02", title: "Cost & time normalised", desc: "Each route's total USD cost and transit days are normalised 0–1 within the candidate set, making them directly comparable regardless of magnitude." },
+                { step: "03", title: "Efficiency score computed", desc: "Score = 100 × (1 − (w_cost × costNorm + w_time × timeNorm)). Your priority slider sets the weights. Top 5 are rendered on the globe." },
+              ].map((s, i) => (
+                <div key={i} style={{ padding: "40px 36px", borderRight: i < 2 ? "1px solid var(--border)" : "none" }}>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: "var(--text-4)", marginBottom: 20 }}>{s.step}</div>
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 12 }}>{s.title}</h3>
+                  <p className="text-body" style={{ color: "var(--text-2)", lineHeight: 1.75 }}>{s.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 40, padding: "28px 36px", border: "1px solid var(--border)", display: "flex", gap: 32, alignItems: "center", flexWrap: "wrap" }}>
+              <p className="text-label" style={{ marginRight: 8 }}>Grade key</p>
+              {[
+                { grade: "A+", range: "90–100", note: "Optimal"     },
+                { grade: "A",  range: "80–89",  note: "Excellent"   },
+                { grade: "B+", range: "70–79",  note: "Good"        },
+                { grade: "B",  range: "60–69",  note: "Acceptable"  },
+                { grade: "C",  range: "50–59",  note: "Suboptimal"  },
+                { grade: "D",  range: "0–49",   note: "Inefficient" },
+              ].map(g => (
+                <div key={g.grade} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 800, color: GRADE_COLOR[g.grade] }}>{g.grade}</span>
+                  <div>
+                    <p style={{ fontSize: 12, fontFamily: "var(--font-body)", color: "var(--text-2)" }}>{g.note}</p>
+                    <p style={{ fontSize: 10, color: "var(--text-4)", fontFamily: "var(--font-body)" }}>{g.range}</p>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
         </section>
-
-        {/* ── CTA ────────────────────────────────────────────────────────────── */}
-        <section style={{ padding: "100px 28px", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ maxWidth: 1200, margin: "0 auto", textAlign: "center" }}>
-            <ScrollReveal>
-              <span className="eyebrow" style={{ justifyContent: "center", marginBottom: 20, display: "flex" }}>
-                Get started
-              </span>
-            </ScrollReveal>
-            <ScrollReveal delay={1}>
-              <h2 className="text-h2" style={{ marginBottom: 24 }}>
-                Ready to map your trade routes?
-              </h2>
-            </ScrollReveal>
-            <ScrollReveal delay={2}>
-              <p className="text-body-lg" style={{ color: "var(--text-2)", maxWidth: 440, margin: "0 auto 40px" }}>
-                14-day free trial, full platform access, no credit card required.
-              </p>
-            </ScrollReveal>
-            <ScrollReveal delay={3} style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <a href="/get-started" style={{ textDecoration: "none" }}>
-                <button className="btn btn-primary" style={{ fontSize: 14, padding: "13px 26px" }}>
-                  Start free trial
-                </button>
-              </a>
-              <a href="/contact" style={{ textDecoration: "none" }}>
-                <button className="btn btn-outline" style={{ fontSize: 14, padding: "12px 24px" }}>
-                  Talk to sales
-                </button>
-              </a>
-            </ScrollReveal>
-          </div>
-        </section>
-
       </main>
       <Footer />
     </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ROUTE CARD — left border uses the route color
+═══════════════════════════════════════════════════════════════ */
+function RouteCard({ route, rank, color }) {
+  const stops = route.stops.map(s => COUNTRIES[s]);
+  const isTop = rank === 1;
+
+  return (
+    <div
+      style={{
+        padding: "22px 28px",
+        borderBottom: "1px solid var(--border)",
+        borderLeft: `3px solid ${color}`,
+        background: isTop ? "rgba(255,255,255,0.03)" : "transparent",
+        transition: "background 0.18s",
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-1)")}
+      onMouseLeave={e => (e.currentTarget.style.background = isTop ? "rgba(255,255,255,0.03)" : "transparent")}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 10, fontWeight: 800, color: "var(--text-4)", letterSpacing: "0.08em" }}>#{rank}</span>
+          <span style={{
+            fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 800,
+            color: GRADE_COLOR[route.grade],
+            background: "var(--bg-2)", border: `1px solid ${GRADE_COLOR[route.grade]}33`,
+            padding: "2px 10px", borderRadius: 3,
+          }}>
+            {route.grade}
+          </span>
+        </div>
+        <span style={{ fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 800, letterSpacing: "-0.04em", color, lineHeight: 1 }}>
+          {route.score}
+        </span>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 3, alignItems: "center", marginBottom: 14 }}>
+        {stops.map((s, i) => (
+          <span key={i} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ fontSize: 12, fontFamily: "var(--font-body)", fontWeight: 600, color: (i === 0 || i === stops.length - 1) ? "var(--text)" : "var(--text-3)" }}>
+              {s.name}
+            </span>
+            {i < stops.length - 1 && <span style={{ fontSize: 9, color: "var(--text-4)" }}>▶</span>}
+          </span>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 24 }}>
+        <Stat label="Cost"    value={`$${fmtNum(route.cost)}`} />
+        <Stat label="Transit" value={`${route.days} days`}             />
+        <Stat label="Hubs"    value={route.stops.length - 2}           />
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div>
+      <p style={{ fontSize: 10, color: "var(--text-4)", fontFamily: "var(--font-body)", marginBottom: 3, letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</p>
+      <p style={{ fontSize: 14, fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "-0.01em" }}>{value}</p>
+    </div>
   );
 }
