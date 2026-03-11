@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 /* ═══════════════════════════════════════════════════════════════
    ROUTE COLORS  — one per rank slot
 ═══════════════════════════════════════════════════════════════ */
-const ROUTE_COLORS = ["#FF4D4D", "#4DA6FF", "#4DFF91", "#FFD700", "#FF9F4D"];
+const ROUTE_COLORS = ["#FF4D4D", "#4DA6FF", "#4DFF91"];
 
 // SSR-safe number formatter — toLocaleString() differs between Node and browser
 const fmtNum = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -236,7 +236,7 @@ function RouteGlobe({ routes }) {
           "star-intensity": 0.7,
         });
 
-        routes.slice(0, 5).forEach((route, routeIdx) => {
+        routes.slice(0, 3).forEach((route, routeIdx) => {
           const color  = ROUTE_COLORS[routeIdx];
           const coords = route.stops.map(s => [COUNTRIES[s].lng, COUNTRIES[s].lat]);
 
@@ -337,7 +337,7 @@ export default function TestPage() {
 
   const allRoutes = useMemo(() => generateAllRoutes(origin, dest), [origin, dest]);
   const scored    = useMemo(() => computeEfficiency(allRoutes, costWeight), [allRoutes, costWeight]);
-  const top5      = scored.slice(0, 5);
+  const top3      = scored.slice(0, 3);
 
   const priorityLabel = sliderVal < 30 ? "Cost-first" : sliderVal > 70 ? "Speed-first" : "Balanced";
 
@@ -378,22 +378,22 @@ export default function TestPage() {
                 </h1>
                 <p className="text-body-lg" style={{ color: "var(--text-2)", maxWidth: 480 }}>
                   Every path is scored across cost, speed, and transshipment burden.
-                  Tune your priority — the engine surfaces the top 5 routes.
+                  Tune your priority — the engine surfaces the top 3 routes.
                 </p>
               </div>
 
-              {top5.length > 0 ? (
+              {top3.length > 0 ? (
                 <div style={{ background: "var(--bg-1)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "24px 32px", minWidth: 220 }}>
                   <p className="text-label" style={{ marginBottom: 10 }}>Best route score</p>
                   <div style={{ fontFamily: "var(--font-display)", fontSize: 56, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}>
-                    {top5[0].score}
-                    <span style={{ fontSize: 22, fontWeight: 700, marginLeft: 8, color: "var(--text-2)" }}>{top5[0].grade}</span>
+                    {top3[0].score}
+                    <span style={{ fontSize: 22, fontWeight: 700, marginLeft: 8, color: "var(--text-2)" }}>{top3[0].grade}</span>
                   </div>
                   <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 10, fontFamily: "var(--font-body)", lineHeight: 1.6 }}>
-                    {top5[0].stops.map(s => COUNTRIES[s].name).join(" → ")}
+                    {top3[0].stops.map(s => COUNTRIES[s].name).join(" → ")}
                   </p>
                   <p style={{ fontSize: 11, color: "var(--text-4)", marginTop: 4, fontFamily: "var(--font-body)" }}>
-                    ${fmtNum(top5[0].cost)} · {top5[0].days} days
+                    ${fmtNum(top3[0].cost)} · {top3[0].days} days
                   </p>
                 </div>
               ) : (
@@ -465,8 +465,8 @@ export default function TestPage() {
 
             {/* Globe */}
             <div style={{ borderRight: "1px solid var(--border)", position: "relative", height: 580, overflow: "hidden" }}>
-              {top5.length > 0 ? (
-                <RouteGlobe key={globeKey} routes={top5} />
+              {top3.length > 0 ? (
+                <RouteGlobe key={globeKey} routes={top3} />
               ) : (
                 <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-1)" }}>
                   <p style={{ color: "var(--text-3)", fontSize: 14, fontFamily: "var(--font-body)" }}>
@@ -476,7 +476,7 @@ export default function TestPage() {
               )}
 
               {/* Color legend overlay */}
-              {top5.length > 0 && (
+              {top3.length > 0 && (
                 <div style={{
                   position: "absolute", bottom: 16, left: 16,
                   display: "flex", flexDirection: "column", gap: 6,
@@ -485,7 +485,7 @@ export default function TestPage() {
                   borderRadius: 6, padding: "12px 16px",
                   pointerEvents: "none", zIndex: 10,
                 }}>
-                  {top5.map((route, i) => (
+                  {top3.map((route, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{
                         width: 20, height: 2.5, background: ROUTE_COLORS[i],
@@ -504,20 +504,20 @@ export default function TestPage() {
             {/* Rankings */}
             <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <div style={{ padding: "20px 28px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-                <p className="text-label">Top 5 Efficient Routes</p>
-                {top5.length > 0 && (
+                <p className="text-label">Top 3 Efficient Routes</p>
+                {top3.length > 0 && (
                   <span style={{ fontSize: 11, color: "var(--text-4)", fontFamily: "var(--font-body)" }}>sorted by efficiency score</span>
                 )}
               </div>
 
-              {top5.length === 0 && (
+              {top3.length === 0 && (
                 <div style={{ padding: "40px 28px" }}>
                   <p style={{ fontSize: 13, color: "var(--text-3)", fontFamily: "var(--font-body)" }}>No viable routes found.</p>
                 </div>
               )}
 
               <div style={{ overflowY: "auto", flex: 1 }}>
-              {top5.map((route, i) => (
+              {top3.map((route, i) => (
                 <RouteCard key={`${route.stops.join("-")}-${i}`} route={route} rank={i + 1} color={ROUTE_COLORS[i]} />
               ))}
               </div>
@@ -533,7 +533,7 @@ export default function TestPage() {
               {[
                 { step: "01", title: "All paths enumerated", desc: "Direct, 1-hub, and 2-hub routes are generated across the port network. For most country pairs that yields 20–250+ candidate routes." },
                 { step: "02", title: "Cost & time normalised", desc: "Each route's total USD cost and transit days are normalised 0–1 within the candidate set, making them directly comparable regardless of magnitude." },
-                { step: "03", title: "Efficiency score computed", desc: "Score = 100 × (1 − (w_cost × costNorm + w_time × timeNorm)). Your priority slider sets the weights. Top 5 are rendered on the globe." },
+                { step: "03", title: "Efficiency score computed", desc: "Score = 100 × (1 − (w_cost × costNorm + w_time × timeNorm)). Your priority slider sets the weights. Top 3 are rendered on the globe." },
               ].map((s, i) => (
                 <div key={i} style={{ padding: "40px 36px", borderRight: i < 2 ? "1px solid var(--border)" : "none" }}>
                   <div style={{ fontFamily: "var(--font-display)", fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: "var(--text-4)", marginBottom: 20 }}>{s.step}</div>
