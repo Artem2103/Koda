@@ -131,7 +131,7 @@ export default function TradeRouteMap({ variant = "home" }) {
     const pool = [...ports];
     const chosen = [pool[0]];
 
-    while (chosen.length < Math.min(10, pool.length)) {
+    while (chosen.length < Math.min(200, pool.length)) {
       let farthest = null;
       let maxDist  = -1;
       for (const candidate of pool) {
