@@ -19,7 +19,7 @@ export function WorldMap({
     () =>
       map.getSVG({
         radius: 0.22,
-        color: "#2a2d40",   // subtle dark dots on dark bg
+        color: "#FFFFFF",   // subtle dark dots on dark bg
         shape: "circle",
         backgroundColor: "transparent",
       }),
