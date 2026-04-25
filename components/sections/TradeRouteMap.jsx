@@ -1,5 +1,5 @@
 import { WorldMap } from "@/components/ui/WorldMap";
-import { TRADE_ROUTES } from "@/lib/data/routes";
+import { MAP_ROUTES } from "@/lib/data/routes";
 
 export default function TradeRouteMap({ variant = "home" }) {
   const isHome = variant === "home";
@@ -70,7 +70,7 @@ export default function TradeRouteMap({ variant = "home" }) {
         </div>
 
         <WorldMap
-          dots={TRADE_ROUTES}
+          dots={MAP_ROUTES}
           lineColor="#4ade80"
           showLabels
           animationDuration={2}

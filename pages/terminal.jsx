@@ -22,7 +22,6 @@ const MODE_ICONS = { Ocean: "⚓", Rail: "🚂", Road: "🚚", Air: "✈️" };
 function MapboxRouteGlobe({ routes, originCoords, destCoords }) {
   const containerRef = useRef(null);
   const mapRef       = useRef(null);
-  // Track every layer/source id so we can wipe cleanly on re-render
   const activeLayersRef = useRef([]);
   const activeSourcesRef = useRef([]);
 
@@ -103,7 +102,6 @@ function MapboxRouteGlobe({ routes, originCoords, destCoords }) {
     });
   }, [routes, clearMap]);
 
-  // Mount map once
   useEffect(() => {
     if (!containerRef.current) return;
     let cancelled = false;
@@ -161,7 +159,6 @@ function MapboxRouteGlobe({ routes, originCoords, destCoords }) {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-paint whenever routes change (map already mounted)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -175,7 +172,7 @@ function MapboxRouteGlobe({ routes, originCoords, destCoords }) {
   return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
 }
 
-// ─── Dotted-globe placeholder (before origin+dest chosen) ────────────────────
+// ─── Dotted-globe placeholder ─────────────────────────────────────────────────
 function EmptyGlobe() {
   return (
     <div style={{
@@ -309,8 +306,9 @@ export default function TerminalPage() {
                       <span style={{ fontSize: 15 }}>{g.icon}</span>
                       <span style={{
                         fontSize: 11, lineHeight: 1.3, fontFamily: "var(--font-body)",
-                        color: goods === g.id ? "#fff" : "var(--text-2)",
-                        fontWeight: goods === g.id ? 600 : 400,
+                        // FIX: was "#fff" when selected — now always uses text variable
+                        color: "var(--text-1)",
+                        fontWeight: goods === g.id ? 500 : 400,
                       }}>
                         {g.label}
                       </span>
@@ -586,7 +584,7 @@ function RouteResults({ result, goodsLabel, goodsIcon, originName, destName, qua
       {/* Summary */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 3 }}>
+          <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 3 }}>
             {goodsIcon} {goodsLabel}
           </p>
           <p style={{ fontSize: 12, color: "var(--text-3)" }}>
@@ -623,7 +621,7 @@ function RouteResults({ result, goodsLabel, goodsIcon, originName, destName, qua
           border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
         }}>
           <p style={{ fontSize: 32, marginBottom: 12 }}>⛔</p>
-          <p style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>No viable routes</p>
+          <p style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No viable routes</p>
           <p style={{ fontSize: 13, color: "var(--text-2)", maxWidth: 340, margin: "0 auto", lineHeight: 1.7 }}>
             The destination bans this goods category, or all corridor options are restricted.
             Consider an alternate goods classification or contact our trade specialists.
@@ -644,7 +642,7 @@ function RouteResults({ result, goodsLabel, goodsIcon, originName, destName, qua
 function StatPill({ value, label, danger }) {
   return (
     <div style={{ textAlign: "center" }}>
-      <p style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800, color: danger ? "#ef4444" : "#fff" }}>{value}</p>
+      <p style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: danger ? "#ef4444" : "var(--text-1)" }}>{value}</p>
       <p style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</p>
     </div>
   );
@@ -690,7 +688,7 @@ function RouteCard({ route, rank, color }) {
         }}
       >
         <span style={{
-          fontFamily: "var(--font-display)", fontSize: 11, fontWeight: 700,
+          fontFamily: "var(--font-display)", fontSize: 11, fontWeight: 600,
           color: "var(--text-3)", minWidth: 20,
         }}>#{rank}</span>
 
@@ -705,9 +703,10 @@ function RouteCard({ route, rank, color }) {
           <span style={{ fontSize: 10, fontWeight: 600, color, letterSpacing: "0.04em" }}>{route.mode}</span>
         </div>
 
+        {/* FIX: Route label — was fontWeight 700 and color #000000, now matches page style */}
         <span style={{
-          fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 700,
-          color: "#fff", flex: 1, letterSpacing: "-0.01em",
+          fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 500,
+          color: "var(--text-1)", flex: 1, letterSpacing: "-0.01em",
         }}>
           {route.label}
         </span>
@@ -715,14 +714,16 @@ function RouteCard({ route, rank, color }) {
         {/* Stats */}
         <div style={{ display: "flex", gap: 18, alignItems: "center", flexShrink: 0 }}>
           <div style={{ textAlign: "right" }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>
+            {/* FIX: was fontWeight 600 and color #000000 */}
+            <p style={{ fontSize: 13, fontWeight: 400, color: "var(--text-1)" }}>
               {route.days[0]}–{route.days[1]}d
             </p>
             <p style={{ fontSize: 10, color: "var(--text-3)" }}>transit</p>
           </div>
           {route.distanceKm && (
             <div style={{ textAlign: "right" }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>
+              {/* FIX: was fontWeight 600 and color #000000 */}
+              <p style={{ fontSize: 13, fontWeight: 400, color: "var(--text-1)" }}>
                 {route.distanceKm >= 1000
                   ? `${(route.distanceKm / 1000).toFixed(1)}k km`
                   : `${route.distanceKm} km`}
@@ -731,7 +732,8 @@ function RouteCard({ route, rank, color }) {
             </div>
           )}
           <div style={{ textAlign: "right" }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{estCost}</p>
+            {/* FIX: was fontWeight 600 and color #000000 */}
+            <p style={{ fontSize: 13, fontWeight: 400, color: "var(--text-1)" }}>{estCost}</p>
             <p style={{ fontSize: 10, color: "var(--text-3)" }}>estimated</p>
           </div>
           <div style={{
@@ -739,7 +741,7 @@ function RouteCard({ route, rank, color }) {
             background: `${scoreColor}18`, border: `1.5px solid ${scoreColor}45`,
             display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
           }}>
-            <span style={{ fontFamily: "var(--font-display)", fontSize: 12, fontWeight: 800, color: scoreColor }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: 12, fontWeight: 700, color: scoreColor }}>
               {route.score}
             </span>
           </div>
@@ -761,10 +763,12 @@ function RouteCard({ route, rank, color }) {
                 {route.waypoints.map((wp, i) => (
                   <span key={i} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <span style={{
-                      fontSize: 12, fontFamily: "var(--font-body)", fontWeight: 600,
-                      color: (i === 0 || i === route.waypoints.length - 1) ? "#fff" : "var(--text-2)",
+                      fontSize: 12, fontFamily: "var(--font-body)", fontWeight: 400,
+                      // FIX: was "#fff" for first/last waypoints — now all use text variable
+                      color: "var(--text-2)",
                       padding: "3px 9px",
-                      background: (i === 0 || i === route.waypoints.length - 1) ? "rgba(255,255,255,0.07)" : "var(--bg-2)",
+                      // FIX: was "rgba(255,255,255,0.07)" for first/last — now uniform
+                      background: "var(--bg-2)",
                       border: "1px solid var(--border)",
                       borderRadius: 2,
                     }}>
@@ -839,7 +843,7 @@ function HowItWorks() {
               {item.step}
             </span>
             <div>
-              <p style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, marginBottom: 4, letterSpacing: "-0.01em" }}>{item.title}</p>
+              <p style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 600, marginBottom: 4, letterSpacing: "-0.01em" }}>{item.title}</p>
               <p style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.65 }}>{item.desc}</p>
             </div>
           </div>
