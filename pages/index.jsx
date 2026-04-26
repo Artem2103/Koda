@@ -3,9 +3,22 @@ import Footer from "@/components/Footer";
 import HeroSection from "@/components/sections/HeroSection";
 import CTASection from "@/components/sections/CTASection";
 import LogoMarquee from "@/components/ui/LogoMarquee";
-import TradeRouteMap from "@/components/sections/TradeRouteMap";
 import Link from "next/link";
-import { STATS } from "@/lib/constants";
+import { motion, useReducedMotion } from "framer-motion";
+
+function Reveal({ children, delay = 0, y = 24 }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y }}
+      whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: reduceMotion ? 0 : 0.6, ease: "easeOut", delay }}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 export default function HomePage() {
   return (
@@ -14,13 +27,16 @@ export default function HomePage() {
       <Header />
       <main>
         <HeroSection />
-        <LogoMarquee />
+        <Reveal>
+          <LogoMarquee />
+        </Reveal>
         <DepartmentStrip />
         <PlatformPreview />
-        <TradeRouteMap variant="home" />
         <IntelligenceFeed />
         <StatsBanner />
-        <CTASection />
+        <Reveal>
+          <CTASection />
+        </Reveal>
       </main>
       <Footer />
     </>
@@ -72,33 +88,35 @@ function DepartmentStrip() {
         display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
       }}>
         {cards.map((c, i) => (
-          <Link key={i} href={c.href} style={{ textDecoration: "none" }}>
-            <div style={{
-              padding: "52px 40px",
-              borderRight: i < 2 ? "1px solid var(--border)" : "none",
-              transition: "background 0.2s",
-              cursor: "pointer",
-              height: "100%",
-            }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-1)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-            >
-              <div style={{ marginBottom: 24 }}>{c.icon}</div>
-              <p className="text-label" style={{ marginBottom: 10 }}>{c.tag}</p>
-              <h3 style={{
-                fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 700,
-                letterSpacing: "-0.02em", marginBottom: 14, lineHeight: 1.1,
-                color: "var(--text)",
-              }}>{c.label}</h3>
-              <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.75 }}>{c.desc}</p>
-              <div style={{ marginTop: 24, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "var(--text-3)", fontFamily: "var(--font-body)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Learn more</span>
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path d="M2 5H8M5.5 2.5L8 5L5.5 7.5" stroke="var(--text-3)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+          <Reveal key={i} delay={i * 0.08}>
+            <Link href={c.href} style={{ textDecoration: "none" }}>
+              <div style={{
+                padding: "52px 40px",
+                borderRight: i < 2 ? "1px solid var(--border)" : "none",
+                transition: "background 0.2s",
+                cursor: "pointer",
+                height: "100%",
+              }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-1)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <div style={{ marginBottom: 24 }}>{c.icon}</div>
+                <p className="text-label" style={{ marginBottom: 10 }}>{c.tag}</p>
+                <h3 style={{
+                  fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 700,
+                  letterSpacing: "-0.02em", marginBottom: 14, lineHeight: 1.1,
+                  color: "var(--text)",
+                }}>{c.label}</h3>
+                <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.75 }}>{c.desc}</p>
+                <div style={{ marginTop: 24, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12, color: "var(--text-3)", fontFamily: "var(--font-body)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Learn more</span>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M2 5H8M5.5 2.5L8 5L5.5 7.5" stroke="var(--text-3)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+          </Reveal>
         ))}
       </div>
     </section>
@@ -115,21 +133,33 @@ function PlatformPreview() {
     }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
-          <div>
-            <span className="eyebrow" style={{ marginBottom: 20, display: "flex" }}>Platform</span>
-            <h2 className="text-h2" style={{ marginBottom: 20 }}>
-              One query.<br />Every answer.
-            </h2>
-            <p className="text-body-lg" style={{ marginBottom: 28 }}>
-              Enter origin, destination, commodity, and volume.
-              Meridian returns ranked routes, full landed cost,
-              and live risk flags in under 3 seconds.
-            </p>
-            <Link href="/logistics" style={{ textDecoration: "none" }}>
-              <button className="btn btn-outline" style={{ fontSize: 13 }}>Explore the platform →</button>
-            </Link>
-          </div>
-          <DashboardMockup />
+          <Reveal y={30}>
+            <div>
+              <Reveal>
+                <span className="eyebrow" style={{ marginBottom: 20, display: "flex" }}>Platform</span>
+              </Reveal>
+              <Reveal delay={0.08}>
+                <h2 className="text-h2" style={{ marginBottom: 20 }}>
+                  One query.<br />Every answer.
+                </h2>
+              </Reveal>
+              <Reveal delay={0.14}>
+                <p className="text-body-lg" style={{ marginBottom: 28 }}>
+                  Enter origin, destination, commodity, and volume.
+                  Meridian returns ranked routes, full landed cost,
+                  and live risk flags in under 3 seconds.
+                </p>
+              </Reveal>
+              <Reveal delay={0.2}>
+                <Link href="/logistics" style={{ textDecoration: "none" }}>
+                  <button className="btn btn-outline" style={{ fontSize: 13 }}>Explore the platform →</button>
+                </Link>
+              </Reveal>
+            </div>
+          </Reveal>
+          <Reveal delay={0.12} y={36}>
+            <DashboardMockup />
+          </Reveal>
         </div>
       </div>
     </section>
@@ -191,28 +221,30 @@ function DashboardMockup() {
             { rank: 1, via: "Suez Canal",         days: 28, cost: "$3,240", score: 94, bar: "94%" },
             { rank: 2, via: "Cape of Good Hope",  days: 36, cost: "$2,890", score: 87, bar: "87%" },
             { rank: 3, via: "Trans-Siberian Rail",days: 22, cost: "$4,100", score: 81, bar: "81%" },
-          ].map((r) => (
-            <div key={r.rank} style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "10px 12px",
-              background: r.rank === 1 ? "rgba(255,255,255,0.06)" : "var(--panel-2)",
-              border: `1px solid ${r.rank === 1 ? "rgba(255,255,255,0.15)" : "var(--panel-border)"}`,
-              borderRadius: "var(--radius-sm)",
-              marginBottom: 6,
-            }}>
-              <span style={{ fontSize: 10, fontFamily: "monospace", color: r.rank === 1 ? "#fff" : "var(--panel-text-3)", width: 16 }}>#{r.rank}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, color: r.rank === 1 ? "#fff" : "var(--panel-text-2)", marginBottom: 4 }}>{r.via}</div>
-                <div style={{ height: 2, background: "var(--panel-border)", borderRadius: 1 }}>
-                  <div style={{ width: r.bar, height: "100%", background: r.rank === 1 ? "#4ade80" : "rgba(255,255,255,0.25)", borderRadius: 1 }}/>
+          ].map((r, i) => (
+            <Reveal key={r.rank} delay={0.08 * i} y={16}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "10px 12px",
+                background: r.rank === 1 ? "rgba(255,255,255,0.06)" : "var(--panel-2)",
+                border: `1px solid ${r.rank === 1 ? "rgba(255,255,255,0.15)" : "var(--panel-border)"}`,
+                borderRadius: "var(--radius-sm)",
+                marginBottom: 6,
+              }}>
+                <span style={{ fontSize: 10, fontFamily: "monospace", color: r.rank === 1 ? "#fff" : "var(--panel-text-3)", width: 16 }}>#{r.rank}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: r.rank === 1 ? "#fff" : "var(--panel-text-2)", marginBottom: 4 }}>{r.via}</div>
+                  <div style={{ height: 2, background: "var(--panel-border)", borderRadius: 1 }}>
+                    <div style={{ width: r.bar, height: "100%", background: r.rank === 1 ? "#4ade80" : "rgba(255,255,255,0.25)", borderRadius: 1 }}/>
+                  </div>
                 </div>
+                <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--panel-text-3)" }}>{r.days}d</span>
+                <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--panel-text-2)" }}>{r.cost}</span>
+                <span style={{ fontSize: 9, padding: "2px 6px", background: r.rank === 1 ? "#4ade80" : "rgba(255,255,255,0.08)", color: r.rank === 1 ? "#000" : "var(--panel-text-3)", borderRadius: 2 }}>
+                  {r.score}
+                </span>
               </div>
-              <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--panel-text-3)" }}>{r.days}d</span>
-              <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--panel-text-2)" }}>{r.cost}</span>
-              <span style={{ fontSize: 9, padding: "2px 6px", background: r.rank === 1 ? "#4ade80" : "rgba(255,255,255,0.08)", color: r.rank === 1 ? "#000" : "var(--panel-text-3)", borderRadius: 2 }}>
-                {r.score}
-              </span>
-            </div>
+            </Reveal>
           ))}
         </div>
 
@@ -245,13 +277,14 @@ function IntelligenceFeed() {
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
           {/* Feed mockup */}
-          <div style={{
-            background: "var(--panel-bg)",
-            border: "1px solid var(--panel-border)",
-            borderRadius: "var(--radius-md)",
-            overflow: "hidden",
-            boxShadow: "var(--shadow-lg)",
-          }}>
+          <Reveal y={30}>
+            <div style={{
+              background: "var(--panel-bg)",
+              border: "1px solid var(--panel-border)",
+              borderRadius: "var(--radius-md)",
+              overflow: "hidden",
+              boxShadow: "var(--shadow-lg)",
+            }}>
             <div style={{
               padding: "12px 16px",
               borderBottom: "1px solid var(--panel-border)",
@@ -268,45 +301,58 @@ function IntelligenceFeed() {
             </div>
             <div style={{ padding: "16px" }}>
               {alerts.map((a, i) => (
-                <div key={i} style={{
-                  display: "flex", gap: 12, alignItems: "flex-start",
-                  padding: "12px",
-                  borderLeft: `2px solid ${a.color}`,
-                  background: "var(--panel-2)",
-                  marginBottom: 6,
-                  borderRadius: "0 var(--radius-sm) var(--radius-sm) 0",
-                }}>
-                  <span style={{
-                    fontSize: 8, fontWeight: 700, letterSpacing: "0.1em",
-                    color: a.color, whiteSpace: "nowrap", paddingTop: 1,
-                    width: 28, textAlign: "right",
-                  }}>{a.level}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: "var(--panel-text)", marginBottom: 2 }}>{a.label}</p>
-                    <p style={{ fontSize: 10, color: "var(--panel-text-2)", lineHeight: 1.4 }}>{a.desc}</p>
+                <Reveal key={i} delay={i * 0.07} y={12}>
+                  <div style={{
+                    display: "flex", gap: 12, alignItems: "flex-start",
+                    padding: "12px",
+                    borderLeft: `2px solid ${a.color}`,
+                    background: "var(--panel-2)",
+                    marginBottom: 6,
+                    borderRadius: "0 var(--radius-sm) var(--radius-sm) 0",
+                  }}>
+                    <span style={{
+                      fontSize: 8, fontWeight: 700, letterSpacing: "0.1em",
+                      color: a.color, whiteSpace: "nowrap", paddingTop: 1,
+                      width: 28, textAlign: "right",
+                    }}>{a.level}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: "var(--panel-text)", marginBottom: 2 }}>{a.label}</p>
+                      <p style={{ fontSize: 10, color: "var(--panel-text-2)", lineHeight: 1.4 }}>{a.desc}</p>
+                    </div>
+                    <span style={{ fontSize: 9, color: "var(--panel-text-3)", whiteSpace: "nowrap", paddingTop: 1 }}>{a.time}</span>
                   </div>
-                  <span style={{ fontSize: 9, color: "var(--panel-text-3)", whiteSpace: "nowrap", paddingTop: 1 }}>{a.time}</span>
-                </div>
+                </Reveal>
               ))}
               <div style={{ marginTop: 12, textAlign: "center" }}>
                 <span style={{ fontSize: 9, color: "var(--panel-text-3)", letterSpacing: "0.1em" }}>↑ 47 signals processed today across 2,400+ corridors</span>
               </div>
             </div>
           </div>
+          </Reveal>
 
-          <div>
-            <span className="eyebrow" style={{ marginBottom: 20, display: "flex" }}>Live Intelligence</span>
-            <h2 className="text-h2" style={{ marginBottom: 20 }}>
-              Signals before<br />they become<br />problems.
-            </h2>
-            <p className="text-body-lg" style={{ marginBottom: 28 }}>
-              Our AI monitors 180 countries around the clock — sanctions updates, port disruptions,
-              new trade agreements, weather risks — and scores their impact on your specific corridors.
-            </p>
-            <Link href="/securities" style={{ textDecoration: "none" }}>
-              <button className="btn btn-outline" style={{ fontSize: 13 }}>See Securities module →</button>
-            </Link>
-          </div>
+          <Reveal y={30}>
+            <div>
+              <Reveal>
+                <span className="eyebrow" style={{ marginBottom: 20, display: "flex" }}>Live Intelligence</span>
+              </Reveal>
+              <Reveal delay={0.08}>
+                <h2 className="text-h2" style={{ marginBottom: 20 }}>
+                  Signals before<br />they become<br />problems.
+                </h2>
+              </Reveal>
+              <Reveal delay={0.14}>
+                <p className="text-body-lg" style={{ marginBottom: 28 }}>
+                  Our AI monitors 180 countries around the clock — sanctions updates, port disruptions,
+                  new trade agreements, weather risks — and scores their impact on your specific corridors.
+                </p>
+              </Reveal>
+              <Reveal delay={0.2}>
+                <Link href="/securities" style={{ textDecoration: "none" }}>
+                  <button className="btn btn-outline" style={{ fontSize: 13 }}>See Securities module →</button>
+                </Link>
+              </Reveal>
+            </div>
+          </Reveal>
         </div>
       </div>
     </section>
@@ -329,19 +375,21 @@ function StatsBanner() {
         { value: "$4.2B", label: "Trade value routed" },
         { value: "94%",   label: "On-time prediction accuracy" },
       ].map(({ value, label }, i) => (
-        <div key={i} style={{
-          padding: "52px 40px", textAlign: "center",
-          borderRight: i < 3 ? "1px solid var(--border)" : "none",
-        }}>
+        <Reveal key={i} delay={i * 0.08} y={18}>
           <div style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(32px, 4.5vw, 52px)",
-            fontWeight: 800, letterSpacing: "-0.025em",
-            lineHeight: 1, marginBottom: 8,
-            color: "var(--text)",
-          }}>{value}</div>
-          <p className="text-label" style={{ fontSize: 11 }}>{label}</p>
-        </div>
+            padding: "52px 40px", textAlign: "center",
+            borderRight: i < 3 ? "1px solid var(--border)" : "none",
+          }}>
+            <div style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(32px, 4.5vw, 52px)",
+              fontWeight: 800, letterSpacing: "-0.025em",
+              lineHeight: 1, marginBottom: 8,
+              color: "var(--text)",
+            }}>{value}</div>
+            <p className="text-label" style={{ fontSize: 11 }}>{label}</p>
+          </div>
+        </Reveal>
       ))}
     </div>
   );

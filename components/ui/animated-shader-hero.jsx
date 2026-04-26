@@ -214,17 +214,33 @@ const useShaderBackground = () => {
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const canvas = canvasRef.current;
-    const dpr = Math.max(1, 0.5 * window.devicePixelRatio);
-    rendererRef.current = new WebGLRenderer(canvas, dpr);
-    pointersRef.current = new PointerHandler(canvas, dpr);
-    rendererRef.current.setup();
-    rendererRef.current.init();
-    resize();
-    if (rendererRef.current.test(defaultShaderSource) === null) rendererRef.current.updateShader(defaultShaderSource);
-    loop(0);
-    window.addEventListener("resize", resize);
+    let isMounted = true;
+    const startRenderer = () => {
+      if (!isMounted) return;
+      const dpr = Math.max(1, 0.5 * window.devicePixelRatio);
+      rendererRef.current = new WebGLRenderer(canvas, dpr);
+      pointersRef.current = new PointerHandler(canvas, dpr);
+      rendererRef.current.setup();
+      rendererRef.current.init();
+      resize();
+      if (rendererRef.current.test(defaultShaderSource) === null) {
+        rendererRef.current.updateShader(defaultShaderSource);
+      }
+      loop(0);
+      window.addEventListener("resize", resize);
+    };
+
+    const idleId =
+      "requestIdleCallback" in window
+        ? window.requestIdleCallback(startRenderer, { timeout: 1200 })
+        : setTimeout(startRenderer, 300);
+
     return () => {
+      isMounted = false;
+      if ("cancelIdleCallback" in window) window.cancelIdleCallback(idleId);
+      else clearTimeout(idleId);
       window.removeEventListener("resize", resize);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       rendererRef.current?.reset();
