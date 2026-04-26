@@ -234,7 +234,7 @@ export default function Header() {
           <span style={{
             fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 500,
             letterSpacing: "0.14em", textTransform: "uppercase",
-            color: "var(--text-4)", marginRight: 20, whiteSpace: "nowrap",
+            color: "var(--text)", marginRight: 20, whiteSpace: "nowrap",
           }}>
             Departments
           </span>

@@ -172,12 +172,11 @@ body {
 .btn-primary:hover { background: #1a1c2e; }
 
 .btn-outline {
-  background: transparent;
-  color: var(--text-2);
-  border: 1px solid var(--border-hi);
+  background: var(--text);
+  color: var(--bg);
   padding: 10px 21px;
 }
-.btn-outline:hover { border-color: var(--text-3); color: var(--text); }
+.btn-outline:hover { background: #1a1c2e; }
 
 .btn-secondary {
   background: transparent;
