@@ -48,7 +48,7 @@ export default function TradeRouteMap({ variant = "home" }) {
                 fontFamily: "var(--font-heading)",
                 fontSize: "clamp(1.8rem, 3.4vw, 2.8rem)",
                 letterSpacing: "0.02em",
-                color: "var(--panel-text-1)",
+                color: "var(--text-4)",
               }}
             >
               Active Trade Corridors
