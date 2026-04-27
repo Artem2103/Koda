@@ -1,854 +1,1020 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import Head from "next/head";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import {
-  GOODS_CATEGORIES,
-  QUANTITY_UNITS,
-  COUNTRIES,
-  checkCountryRestriction,
-} from "@/lib/Traderules";
 
-// ─── Country list sorted for dropdowns ───────────────────────────────────────
-const COUNTRY_OPTIONS = Object.entries(COUNTRIES)
-  .map(([code, data]) => ({ code, ...data }))
-  .sort((a, b) => a.name.localeCompare(b.name));
+// ─── ROUTE COLORS ─────────────────────────────────────────────────────────────
+const ROUTE_COLORS = ["#00D4FF", "#FF6B35", "#A8FF3E"];
 
-// ─── Route colours (top-3) ───────────────────────────────────────────────────
-const ROUTE_COLORS = ["#FF4D4D", "#4DA6FF", "#4DFF91"];
+// ─── PRODUCTS ─────────────────────────────────────────────────────────────────
+const PRODUCTS = [
+  { id: "fresh_produce",   label: "Fresh Produce",       emoji: "🥦" },
+  { id: "electronics",     label: "Electronics",          emoji: "📱" },
+  { id: "pharmaceuticals", label: "Pharmaceuticals",      emoji: "💊" },
+  { id: "confectionery",   label: "Confectionery",        emoji: "🍬" },
+  { id: "alcohol",         label: "Alcohol & Beverages",  emoji: "🍷" },
+  { id: "textiles",        label: "Textiles & Apparel",   emoji: "👕" },
+  { id: "industrial",      label: "Industrial Chemicals", emoji: "⚗️"  },
+  { id: "arms",            label: "Arms & Defence",       emoji: "🛡️"  },
+  { id: "vehicles",        label: "Vehicles & Parts",     emoji: "🚗" },
+  { id: "livestock",       label: "Livestock",            emoji: "🐄" },
+  { id: "timber",          label: "Timber & Wood",        emoji: "🪵" },
+  { id: "minerals",        label: "Minerals & Materials", emoji: "⛏️"  },
+];
 
-const MODE_ICONS = { Ocean: "⚓", Rail: "🚂", Road: "🚚", Air: "✈️" };
+const UNITS = ["tonnes","kg","units","pallets","containers (20ft)","containers (40ft)","litres"];
 
-// ─── Mapbox Globe ─────────────────────────────────────────────────────────────
-function MapboxRouteGlobe({ routes, originCoords, destCoords }) {
+const COUNTRIES = [
+  "Afghanistan","Albania","Algeria","Argentina","Australia","Austria","Bangladesh",
+  "Belgium","Brazil","Canada","Chile","China","Colombia","Czech Republic","Denmark",
+  "Egypt","Ethiopia","Finland","France","Germany","Ghana","Greece","Hungary","India",
+  "Indonesia","Iran","Iraq","Ireland","Israel","Italy","Japan","Jordan","Kenya",
+  "Malaysia","Mexico","Morocco","Netherlands","New Zealand","Nigeria","Norway",
+  "Pakistan","Peru","Philippines","Poland","Portugal","Romania","Russia","Saudi Arabia",
+  "Singapore","South Africa","South Korea","Spain","Sri Lanka","Sweden","Switzerland",
+  "Taiwan","Thailand","Turkey","Ukraine","United Arab Emirates","United Kingdom",
+  "United States","Venezuela","Vietnam","Zimbabwe",
+];
+
+// ─── TRANSIT HUBS (lng, lat) ──────────────────────────────────────────────────
+const HUBS = {
+  rotterdam:    { coords: [4.4792,   51.9225], label: "Rotterdam"    },
+  hamburg:      { coords: [9.9937,   53.5511], label: "Hamburg"      },
+  antwerp:      { coords: [4.4024,   51.2194], label: "Antwerp"      },
+  singapore:    { coords: [103.8198,  1.3521], label: "Singapore"    },
+  shanghai:     { coords: [121.4737, 31.2304], label: "Shanghai"     },
+  shenzhen:     { coords: [114.0579, 22.5431], label: "Shenzhen"     },
+  hongkong:     { coords: [114.1694, 22.3193], label: "Hong Kong"    },
+  dubai:        { coords: [55.2708,  25.2048], label: "Dubai"        },
+  jeddah:       { coords: [39.1728,  21.4858], label: "Jeddah"       },
+  mumbai:       { coords: [72.8777,  19.0760], label: "Mumbai"       },
+  colombo:      { coords: [79.8612,   6.9271], label: "Colombo"      },
+  losangeles:   { coords: [-118.2437,33.9600], label: "Los Angeles"  },
+  newyork:      { coords: [-74.0059, 40.7128], label: "New York"     },
+  houston:      { coords: [-95.3698, 29.7604], label: "Houston"      },
+  vancouver:    { coords: [-123.1207,49.2827], label: "Vancouver"    },
+  santos:       { coords: [-46.3338,-23.9608], label: "Santos"       },
+  buenosaires:  { coords: [-58.3816,-34.6037], label: "Buenos Aires" },
+  capetown:     { coords: [18.4241, -33.9249], label: "Cape Town"    },
+  mombasa:      { coords: [39.6682,  -4.0435], label: "Mombasa"      },
+  lagos:        { coords: [3.3792,    6.5244], label: "Lagos"        },
+  sydney:       { coords: [151.2093,-33.8688], label: "Sydney"       },
+  tokyo:        { coords: [139.6917, 35.6895], label: "Tokyo"        },
+  busan:        { coords: [129.0756, 35.1796], label: "Busan"        },
+  suezcanal:    { coords: [32.5498,  30.5852], label: "Suez Canal"   },
+  panamacanal:  { coords: [-79.5197,  8.9936], label: "Panama Canal" },
+};
+
+// ─── COUNTRY DATA (lng, lat) + nearest hubs ───────────────────────────────────
+const COUNTRY_DATA = {
+  "Afghanistan":          { coords: [67.7100,  33.9391], hubs: ["dubai","mumbai"]              },
+  "Albania":              { coords: [20.1683,  41.1533], hubs: ["antwerp","rotterdam"]         },
+  "Algeria":              { coords: [1.6596,   28.0339], hubs: ["rotterdam","jeddah"]          },
+  "Argentina":            { coords: [-63.6167,-38.4161], hubs: ["buenosaires","santos"]        },
+  "Australia":            { coords: [133.7751,-25.2744], hubs: ["sydney","singapore"]          },
+  "Austria":              { coords: [14.5501,  47.5162], hubs: ["hamburg","rotterdam"]         },
+  "Bangladesh":           { coords: [90.3563,  23.6850], hubs: ["colombo","singapore"]         },
+  "Belgium":              { coords: [4.4699,   50.5039], hubs: ["antwerp","rotterdam"]         },
+  "Brazil":               { coords: [-51.9253,-14.2350], hubs: ["santos","buenosaires"]        },
+  "Canada":               { coords: [-106.3468,56.1304], hubs: ["vancouver","newyork"]         },
+  "Chile":                { coords: [-71.5430,-35.6751], hubs: ["buenosaires","losangeles"]    },
+  "China":                { coords: [104.1954, 35.8617], hubs: ["shanghai","shenzhen","hongkong"] },
+  "Colombia":             { coords: [-74.2973,  4.5709], hubs: ["panamacanal","houston"]       },
+  "Czech Republic":       { coords: [15.4730,  49.8175], hubs: ["hamburg","rotterdam"]         },
+  "Denmark":              { coords: [9.5018,   56.2639], hubs: ["hamburg","rotterdam"]         },
+  "Egypt":                { coords: [30.8025,  26.8206], hubs: ["suezcanal","jeddah"]          },
+  "Ethiopia":             { coords: [40.4897,   9.1450], hubs: ["mombasa","jeddah"]            },
+  "Finland":              { coords: [25.7482,  61.9241], hubs: ["hamburg","rotterdam"]         },
+  "France":               { coords: [2.2137,   46.2276], hubs: ["rotterdam","antwerp"]         },
+  "Germany":              { coords: [10.4515,  51.1657], hubs: ["hamburg","rotterdam"]         },
+  "Ghana":                { coords: [-1.0232,   7.9465], hubs: ["lagos","capetown"]            },
+  "Greece":               { coords: [21.8243,  39.0742], hubs: ["suezcanal","rotterdam"]       },
+  "Hungary":              { coords: [19.5033,  47.1625], hubs: ["hamburg","rotterdam"]         },
+  "India":                { coords: [78.9629,  20.5937], hubs: ["mumbai","colombo"]            },
+  "Indonesia":            { coords: [113.9213, -0.7893], hubs: ["singapore","shanghai"]        },
+  "Iran":                 { coords: [53.6880,  32.4279], hubs: ["dubai","jeddah"]              },
+  "Iraq":                 { coords: [43.6793,  33.2232], hubs: ["dubai","jeddah"]              },
+  "Ireland":              { coords: [-7.6921,  53.1424], hubs: ["rotterdam","antwerp"]         },
+  "Israel":               { coords: [34.8516,  31.0461], hubs: ["suezcanal","rotterdam"]       },
+  "Italy":                { coords: [12.5674,  41.8719], hubs: ["rotterdam","suezcanal"]       },
+  "Japan":                { coords: [138.2529, 36.2048], hubs: ["tokyo","busan","singapore"]   },
+  "Jordan":               { coords: [36.2384,  30.5852], hubs: ["suezcanal","dubai"]           },
+  "Kenya":                { coords: [37.9062,  -0.0236], hubs: ["mombasa","dubai"]             },
+  "Malaysia":             { coords: [101.9758,  4.2105], hubs: ["singapore","hongkong"]        },
+  "Mexico":               { coords: [-102.5528,23.6345], hubs: ["houston","losangeles","panamacanal"] },
+  "Morocco":              { coords: [-7.0926,  31.7917], hubs: ["rotterdam","jeddah"]          },
+  "Netherlands":          { coords: [5.2913,   52.1326], hubs: ["rotterdam","antwerp"]         },
+  "New Zealand":          { coords: [174.8860,-40.9006], hubs: ["sydney","losangeles"]         },
+  "Nigeria":              { coords: [8.6753,    9.0820], hubs: ["lagos","capetown"]            },
+  "Norway":               { coords: [8.4689,   60.4720], hubs: ["rotterdam","hamburg"]         },
+  "Pakistan":             { coords: [69.3451,  30.3753], hubs: ["dubai","mumbai"]              },
+  "Peru":                 { coords: [-75.0152, -9.1900], hubs: ["panamacanal","losangeles"]    },
+  "Philippines":          { coords: [121.7740, 12.8797], hubs: ["hongkong","singapore"]        },
+  "Poland":               { coords: [19.1451,  51.9194], hubs: ["hamburg","rotterdam"]         },
+  "Portugal":             { coords: [-8.2245,  39.3999], hubs: ["rotterdam","antwerp"]         },
+  "Romania":              { coords: [24.9668,  45.9432], hubs: ["rotterdam","suezcanal"]       },
+  "Russia":               { coords: [105.3188, 61.5240], hubs: ["rotterdam","shanghai"]        },
+  "Saudi Arabia":         { coords: [45.0792,  23.8859], hubs: ["jeddah","dubai"]              },
+  "Singapore":            { coords: [103.8198,  1.3521], hubs: ["singapore"]                   },
+  "South Africa":         { coords: [22.9375, -30.5595], hubs: ["capetown","mombasa"]          },
+  "South Korea":          { coords: [127.7669, 35.9078], hubs: ["busan","tokyo"]               },
+  "Spain":                { coords: [-3.7492,  40.4637], hubs: ["rotterdam","antwerp"]         },
+  "Sri Lanka":            { coords: [80.7718,   7.8731], hubs: ["colombo","singapore"]         },
+  "Sweden":               { coords: [18.6435,  60.1282], hubs: ["hamburg","rotterdam"]         },
+  "Switzerland":          { coords: [8.2275,   46.8182], hubs: ["rotterdam","hamburg"]         },
+  "Taiwan":               { coords: [121.0254, 23.5937], hubs: ["hongkong","busan"]            },
+  "Thailand":             { coords: [100.9925, 15.8700], hubs: ["singapore","colombo"]         },
+  "Turkey":               { coords: [35.2433,  38.9637], hubs: ["suezcanal","rotterdam"]       },
+  "Ukraine":              { coords: [31.1656,  48.3794], hubs: ["rotterdam","suezcanal"]       },
+  "United Arab Emirates": { coords: [53.8478,  23.4241], hubs: ["dubai"]                       },
+  "United Kingdom":       { coords: [-3.4360,  55.3781], hubs: ["rotterdam","antwerp"]         },
+  "United States":        { coords: [-95.7129, 37.0902], hubs: ["losangeles","newyork","houston"] },
+  "Venezuela":            { coords: [-66.5897,  6.4238], hubs: ["panamacanal","houston"]       },
+  "Vietnam":              { coords: [108.2772, 14.0583], hubs: ["singapore","hongkong"]        },
+  "Zimbabwe":             { coords: [29.1549, -19.0154], hubs: ["capetown","mombasa"]          },
+};
+
+// ─── PRODUCT RESTRICTIONS ─────────────────────────────────────────────────────
+const PRODUCT_RESTRICTIONS = {
+  fresh_produce:   { avoidHubs: new Set(["dubai"]),                 note: "Perishable — desert hub storage limited" },
+  alcohol:         { avoidHubs: new Set(["jeddah","dubai"]),        note: "Gulf import restrictions apply" },
+  arms:            { avoidHubs: new Set(["suezcanal","panamacanal"]), note: "Restricted via certain chokepoints" },
+  livestock:       { avoidHubs: new Set(["suezcanal"]),             note: "Live animal corridor restrictions" },
+  pharmaceuticals: { avoidHubs: new Set([]),                        note: "Cold chain required throughout" },
+  industrial:      { avoidHubs: new Set([]),                        note: "Hazmat documentation at all hubs" },
+};
+
+// ─── ROUTING ENGINE ───────────────────────────────────────────────────────────
+function dist([lng1, lat1], [lng2, lat2]) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function routeDist(waypoints) {
+  let total = 0;
+  for (let i = 1; i < waypoints.length; i++) total += dist(waypoints[i - 1], waypoints[i]);
+  return total;
+}
+
+function buildRoutes(origin, destination, product) {
+  const od = COUNTRY_DATA[origin];
+  const dd = COUNTRY_DATA[destination];
+  if (!od || !dd) return [];
+
+  const restrictions = PRODUCT_RESTRICTIONS[product] || { avoidHubs: new Set([]), note: "" };
+  const avoid = restrictions.avoidHubs;
+
+  const originHubs = od.hubs.filter(h => !avoid.has(h));
+  const destHubs   = dd.hubs.filter(h => !avoid.has(h));
+
+  const strategies = [
+    // 1. Air freight — direct great circle
+    {
+      label:   "Air Freight — Direct",
+      mode:    "air",
+      waypoints: [od.coords, dd.coords],
+      hubLabels: [],
+      speedKmh: 850,
+      costPerKm: 7.8,
+      dashArray: [1],
+    },
+    // 2. Ocean — via primary hubs on each side
+    originHubs[0] && destHubs[0] && originHubs[0] !== destHubs[0]
+      ? {
+          label: `Ocean — via ${HUBS[originHubs[0]].label} & ${HUBS[destHubs[0]].label}`,
+          mode: "ocean",
+          waypoints: [od.coords, HUBS[originHubs[0]].coords, HUBS[destHubs[0]].coords, dd.coords],
+          hubLabels: [HUBS[originHubs[0]].label, HUBS[destHubs[0]].label],
+          speedKmh: 28,
+          costPerKm: 0.75,
+          dashArray: [1],
+        }
+      : originHubs[0]
+        ? {
+            label: `Ocean — via ${HUBS[originHubs[0]].label}`,
+            mode: "ocean",
+            waypoints: [od.coords, HUBS[originHubs[0]].coords, dd.coords],
+            hubLabels: [HUBS[originHubs[0]].label],
+            speedKmh: 28,
+            costPerKm: 0.75,
+            dashArray: [1],
+          }
+        : null,
+    // 3. Rail + Ocean — via secondary / alternate hubs
+    (() => {
+      const oh = originHubs[1] || originHubs[0];
+      const dh = destHubs[1]   || destHubs[0];
+      if (!oh) return null;
+      const wps = oh !== dh && dh
+        ? [od.coords, HUBS[oh].coords, HUBS[dh].coords, dd.coords]
+        : [od.coords, HUBS[oh].coords, dd.coords];
+      const hls = oh !== dh && dh
+        ? [HUBS[oh].label, HUBS[dh].label]
+        : [HUBS[oh].label];
+      return {
+        label: `Rail + Ocean — via ${hls.join(" & ")}`,
+        mode: "rail_ocean",
+        waypoints: wps,
+        hubLabels: hls,
+        speedKmh: 52,
+        costPerKm: 1.15,
+        dashArray: [6, 3],
+      };
+    })(),
+  ].filter(Boolean).slice(0, 3);
+
+  return strategies.map((s, i) => {
+    const d    = routeDist(s.waypoints);
+    const days = Math.round(d / s.speedKmh / 24) + s.hubLabels.length;
+    const cost = Math.round(d * s.costPerKm * (0.95 + Math.random() * 0.1));
+    const score = Math.min(99, Math.max(62, 97 - i * 7 - (days > 60 ? 6 : 0)));
+    return {
+      ...s,
+      rank: i + 1,
+      color: ROUTE_COLORS[i],
+      distance: Math.round(d),
+      days,
+      cost: `$${cost.toLocaleString()}`,
+      score,
+      note: restrictions.note,
+    };
+  });
+}
+
+// ─── ARC / LINE GEOMETRY ──────────────────────────────────────────────────────
+function arcSegment(p1, p2, steps = 60) {
+  return Array.from({ length: steps + 1 }, (_, i) => {
+    const t = i / steps;
+    return [p1[0] + (p2[0] - p1[0]) * t, p1[1] + (p2[1] - p1[1]) * t];
+  });
+}
+
+function buildLine(waypoints) {
+  let out = [];
+  for (let i = 1; i < waypoints.length; i++) {
+    const seg = arcSegment(waypoints[i - 1], waypoints[i]);
+    out = out.concat(i === 1 ? seg : seg.slice(1));
+  }
+  return out;
+}
+
+// ─── GLOBE COMPONENT ──────────────────────────────────────────────────────────
+function GlobeMap({ origin, destination, routes, activeRouteIdx, onReady }) {
   const containerRef = useRef(null);
   const mapRef       = useRef(null);
-  const activeLayersRef = useRef([]);
-  const activeSourcesRef = useRef([]);
+  const layersRef    = useRef([]);
+  const sourcesRef   = useRef([]);
+  const markersRef   = useRef([]);
 
-  const clearMap = useCallback(() => {
+  const clearAll = useCallback(() => {
     const map = mapRef.current;
     if (!map) return;
-    activeLayersRef.current.forEach((id) => {
-      try { if (map.getLayer(id)) map.removeLayer(id); } catch {}
-    });
-    activeSourcesRef.current.forEach((id) => {
-      try { if (map.getSource(id)) map.removeSource(id); } catch {}
-    });
-    activeLayersRef.current  = [];
-    activeSourcesRef.current = [];
+    layersRef.current.forEach(id => { try { if (map.getLayer(id)) map.removeLayer(id); } catch {} });
+    sourcesRef.current.forEach(id => { try { if (map.getSource(id)) map.removeSource(id); } catch {} });
+    markersRef.current.forEach(m => m.remove());
+    layersRef.current  = [];
+    sourcesRef.current = [];
+    markersRef.current = [];
   }, []);
 
-  const paintRoutes = useCallback(() => {
-    const map = mapRef.current;
-    if (!map || !routes.length) return;
-
-    clearMap();
-
-    routes.slice(0, 3).forEach((route, rIdx) => {
-      const color = ROUTE_COLORS[rIdx];
-      const coords = (route.waypoints ?? []).map((wp) => [wp.lng, wp.lat]);
-      if (coords.length < 2) return;
-
-      const srcId  = `route-src-${rIdx}`;
-      const glowId = `route-glow-${rIdx}`;
-      const lineId = `route-line-${rIdx}`;
-      const stpSrc = `stops-src-${rIdx}`;
-      const stpHlo = `stops-halo-${rIdx}`;
-      const stpDot = `stops-dot-${rIdx}`;
-
-      map.addSource(srcId, {
-        type: "geojson",
-        data: { type: "Feature", geometry: { type: "LineString", coordinates: coords } },
-      });
-      map.addLayer({
-        id: glowId, type: "line", source: srcId,
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": color, "line-width": 8, "line-opacity": 0.12 },
-      });
-      map.addLayer({
-        id: lineId, type: "line", source: srcId,
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": color, "line-width": 2.5, "line-opacity": 0.95 },
-      });
-
-      map.addSource(stpSrc, {
-        type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: (route.waypoints ?? []).map((wp) => ({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: [wp.lng, wp.lat] },
-            properties: { name: wp.name },
-          })),
-        },
-      });
-      map.addLayer({
-        id: stpHlo, type: "circle", source: stpSrc,
-        paint: { "circle-radius": 8, "circle-color": color, "circle-opacity": 0.18 },
-      });
-      map.addLayer({
-        id: stpDot, type: "circle", source: stpSrc,
-        paint: {
-          "circle-radius": 3.5,
-          "circle-color": color,
-          "circle-opacity": 1,
-          "circle-stroke-color": "#000",
-          "circle-stroke-width": 1.2,
-        },
-      });
-
-      activeLayersRef.current.push(glowId, lineId, stpHlo, stpDot);
-      activeSourcesRef.current.push(srcId, stpSrc);
-    });
-  }, [routes, clearMap]);
-
+  // Mount map once
   useEffect(() => {
     if (!containerRef.current) return;
-    let cancelled = false;
+    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-    const init = async () => {
-      if (!document.getElementById("mapbox-gl-css")) {
-        const link = document.createElement("link");
-        link.id   = "mapbox-gl-css";
-        link.rel  = "stylesheet";
-        link.href = "https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.css";
-        document.head.appendChild(link);
-      }
+    const map = new mapboxgl.Map({
+      container: containerRef.current,
+      style: "mapbox://styles/mapbox/satellite-streets-v12",
+      projection: "globe",
+      center: [20, 15],
+      zoom: 1.3,
+      minZoom: 0.5,
+      maxZoom: 9,
+      attributionControl: false,
+    });
 
-      const mapboxgl = (await import("mapbox-gl")).default;
-      if (cancelled) return;
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "bottom-right");
 
-      mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-
-      const centerLng = originCoords && destCoords
-        ? (originCoords.lng + destCoords.lng) / 2
-        : 30;
-      const centerLat = originCoords && destCoords
-        ? (originCoords.lat + destCoords.lat) / 2
-        : 20;
-
-      const map = new mapboxgl.Map({
-        container: containerRef.current,
-        style: "mapbox://styles/mapbox/dark-v11",
-        center: [centerLng, centerLat],
-        zoom: 1.5,
-        projection: "globe",
-        antialias: true,
+    map.on("load", () => {
+      map.setFog({
+        color:            "rgb(6, 14, 30)",
+        "high-color":     "rgb(16, 44, 130)",
+        "horizon-blend":  0.06,
+        "space-color":    "rgb(2, 4, 18)",
+        "star-intensity": 0.92,
       });
-
       mapRef.current = map;
-      map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+      onReady?.();
+    });
 
-      map.on("load", () => {
-        if (cancelled) return;
-        map.setFog({
-          color: "rgb(8,8,18)",
-          "high-color": "rgb(18,18,45)",
-          "horizon-blend": 0.02,
-          "space-color": "rgb(4,4,12)",
-          "star-intensity": 0.65,
-        });
-        if (routes.length) paintRoutes();
-      });
+    // Auto-rotate
+    let rotating = true;
+    let raf;
+    const doRotate = () => {
+      if (!rotating || !mapRef.current) return;
+      const c = mapRef.current.getCenter();
+      mapRef.current.setCenter([c.lng + 0.05, c.lat]);
+      raf = requestAnimationFrame(doRotate);
     };
+    const stopRotate = () => { rotating = false; cancelAnimationFrame(raf); };
+    map.on("load", () => { raf = requestAnimationFrame(doRotate); });
+    map.on("mousedown", stopRotate);
+    map.on("touchstart", stopRotate);
 
-    init().catch(console.error);
     return () => {
-      cancelled = true;
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
+      cancelAnimationFrame(raf);
+      clearAll();
+      map.remove();
+      mapRef.current = null;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Redraw whenever routes / selection changes
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (map.isStyleLoaded()) {
-      paintRoutes();
-    } else {
-      map.once("load", paintRoutes);
-    }
-  }, [paintRoutes]);
 
-  return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
-}
+    const draw = () => {
+      clearAll();
+      if (!routes.length || !origin || !destination) return;
 
-// ─── Dotted-globe placeholder ─────────────────────────────────────────────────
-function EmptyGlobe() {
-  return (
-    <div style={{
-      width: "100%", height: "100%",
-      background: "var(--bg-1)", border: "1px solid var(--border)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      flexDirection: "column", gap: 12,
-    }}>
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        <circle cx="24" cy="24" r="22" stroke="var(--border-hi)" strokeWidth="1.2"/>
-        <ellipse cx="24" cy="24" rx="10" ry="22" stroke="var(--border)" strokeWidth="0.8"/>
-        <line x1="2" y1="24" x2="46" y2="24" stroke="var(--border)" strokeWidth="0.8"/>
-        <line x1="24" y1="2" x2="24" y2="46" stroke="var(--border)" strokeWidth="0.8"/>
-      </svg>
-      <p style={{ fontSize: 12, color: "var(--text-3)", textAlign: "center", lineHeight: 1.6 }}>
-        Select origin &amp; destination<br />to visualise the route
-      </p>
-    </div>
-  );
-}
+      const od = COUNTRY_DATA[origin];
+      const dd = COUNTRY_DATA[destination];
+      if (!od || !dd) return;
 
-// ─── Page ────────────────────────────────────────────────────────────────────
-export default function TerminalPage() {
-  const [goods,    setGoods]    = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [unit,     setUnit]     = useState("tonnes");
-  const [origin,   setOrigin]   = useState("");
-  const [dest,     setDest]     = useState("");
-  const [result,   setResult]   = useState(null);
-  const [loading,  setLoading]  = useState(false);
-  const [ran,      setRan]      = useState(false);
-  const [apiError, setApiError] = useState("");
+      // Fly to midpoint
+      const midLng = (od.coords[0] + dd.coords[0]) / 2;
+      const midLat = (od.coords[1] + dd.coords[1]) / 2;
+      const d = dist(od.coords, dd.coords);
+      const zoom = d > 8000 ? 1.4 : d > 4000 ? 1.9 : d > 2000 ? 2.6 : 3.2;
+      map.flyTo({ center: [midLng, midLat], zoom, duration: 2000, essential: true });
 
-  const quantityKg = useMemo(() => {
-    const q = parseFloat(quantity) || 0;
-    const m = { "kg": 1, "tonnes": 1000, "units": 0.5, "pallets": 500,
-                "containers (20ft)": 20000, "containers (40ft)": 26000 };
-    return q * (m[unit] || 1);
-  }, [quantity, unit]);
+      // Draw each route
+      routes.forEach((route, ri) => {
+        const isActive  = ri === activeRouteIdx;
+        const lineCoords = buildLine(route.waypoints);
+        const srcId  = `rsrc-${ri}`;
+        const glowId = `rglow-${ri}`;
+        const lineId = `rline-${ri}`;
 
-  const handleCalculate = async () => {
-    if (!goods || !origin || !dest || !quantity) return;
-    setLoading(true);
-    setRan(true);
-    setApiError("");
-    setResult(null);
+        map.addSource(srcId, {
+          type: "geojson",
+          data: { type: "Feature", geometry: { type: "LineString", coordinates: lineCoords } },
+        });
+        map.addLayer({ id: glowId, type: "line", source: srcId, paint: {
+          "line-color":   route.color,
+          "line-width":   isActive ? 12 : 6,
+          "line-opacity": isActive ? 0.18 : 0.05,
+          "line-blur":    6,
+        }});
+        map.addLayer({ id: lineId, type: "line", source: srcId, paint: {
+          "line-color":     route.color,
+          "line-width":     isActive ? 2.5 : 1.2,
+          "line-opacity":   isActive ? 1 : 0.30,
+          "line-dasharray": route.dashArray,
+        }});
+        sourcesRef.current.push(srcId);
+        layersRef.current.push(glowId, lineId);
 
-    try {
-      const res = await fetch("/api/routes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          origin,
-          destination: dest,
-          product: goods,
-          quantity: quantityKg,
-        }),
+        // Hub markers for active route
+        if (isActive) {
+          route.hubLabels.forEach(hubLabel => {
+            const hubKey = Object.keys(HUBS).find(k => HUBS[k].label === hubLabel);
+            if (!hubKey) return;
+            const el = document.createElement("div");
+            el.style.cssText = `width:8px;height:8px;border-radius:2px;background:${route.color};box-shadow:0 0 8px ${route.color};transform:rotate(45deg);`;
+            const popup = new mapboxgl.Popup({ offset: 12, closeButton: false, closeOnClick: false })
+              .setHTML(`<div style="font-family:'DM Sans',sans-serif;font-size:10px;color:#fff;background:rgba(5,10,20,0.95);padding:4px 10px;border-radius:3px;border:1px solid rgba(255,255,255,0.12);letter-spacing:0.06em;white-space:nowrap">${hubLabel}</div>`);
+            markersRef.current.push(
+              new mapboxgl.Marker({ element: el }).setLngLat(HUBS[hubKey].coords).setPopup(popup).addTo(map)
+            );
+          });
+        }
       });
 
-      if (!res.ok) throw new Error(`API error ${res.status}`);
-      const data = await res.json();
-      setResult(data);
-    } catch (err) {
-      console.error(err);
-      setApiError("Failed to calculate routes. Please try again.");
-    } finally {
-      setLoading(false);
+      // Origin marker
+      const mkEl = (color) => {
+        const el = document.createElement("div");
+        el.style.cssText = `width:12px;height:12px;border-radius:50%;background:${color};border:2px solid rgba(255,255,255,0.7);box-shadow:0 0 0 4px rgba(${hexRgb(color)},0.2),0 0 18px ${color};`;
+        return el;
+      };
+      markersRef.current.push(
+        new mapboxgl.Marker({ element: mkEl("#00D4FF") })
+          .setLngLat(od.coords)
+          .setPopup(new mapboxgl.Popup({ offset: 14, closeButton: false }).setHTML(
+            `<div style="font-family:'DM Sans',sans-serif;font-size:10px;color:#fff;background:rgba(5,10,20,0.95);padding:4px 10px;border-radius:3px;border:1px solid rgba(0,212,255,0.4);letter-spacing:0.06em;white-space:nowrap">◆ ${origin}</div>`
+          ))
+          .addTo(map)
+      );
+      markersRef.current.push(
+        new mapboxgl.Marker({ element: mkEl("#FF6B35") })
+          .setLngLat(dd.coords)
+          .setPopup(new mapboxgl.Popup({ offset: 14, closeButton: false }).setHTML(
+            `<div style="font-family:'DM Sans',sans-serif;font-size:10px;color:#fff;background:rgba(5,10,20,0.95);padding:4px 10px;border-radius:3px;border:1px solid rgba(255,107,53,0.4);letter-spacing:0.06em;white-space:nowrap">◆ ${destination}</div>`
+          ))
+          .addTo(map)
+      );
+    };
+
+    if (map.isStyleLoaded()) {
+      draw();
+    } else {
+      map.once("load", draw);
     }
+  }, [routes, origin, destination, activeRouteIdx, clearAll]);
+
+  return <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />;
+}
+
+// ─── PAGE ─────────────────────────────────────────────────────────────────────
+export default function TerminalPage() {
+  const [product,     setProduct]     = useState(null);
+  const [qty,         setQty]         = useState("");
+  const [unit,        setUnit]        = useState("tonnes");
+  const [origin,      setOrigin]      = useState("");
+  const [destination, setDestination] = useState("");
+
+  const [routes,      setRoutes]      = useState([]);
+  const [loading,     setLoading]     = useState(false);
+  const [calculated,  setCalculated]  = useState(false);
+  const [mapReady,    setMapReady]    = useState(false);
+  const [activeRoute, setActiveRoute] = useState(0);
+
+  const [time, setTime] = useState("");
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setTime(d.toUTCString().slice(0, 25).replace("GMT","UTC"));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Reset routes when key inputs change
+  useEffect(() => {
+    setRoutes([]);
+    setCalculated(false);
+    setActiveRoute(0);
+  }, [origin, destination, product]);
+
+  const canCalc = product && qty && parseFloat(qty) > 0 && origin && destination && origin !== destination;
+
+  const handleCalc = () => {
+    if (!canCalc || loading) return;
+    setLoading(true);
+    setRoutes([]);
+    setCalculated(false);
+    setTimeout(() => {
+      const r = buildRoutes(origin, destination, product);
+      setRoutes(r);
+      setLoading(false);
+      setCalculated(true);
+      setActiveRoute(0);
+    }, 1200);
   };
-
-  const goodsLabel = GOODS_CATEGORIES.find((g) => g.id === goods)?.label || "";
-  const goodsIcon  = GOODS_CATEGORIES.find((g) => g.id === goods)?.icon  || "";
-  const originName = COUNTRIES[origin]?.name || "";
-  const destName   = COUNTRIES[dest]?.name   || "";
-  const canRun     = goods && origin && dest && quantity;
-
-  const mapKey = `${origin}--${dest}--${result ? result.routes.length : "empty"}`;
 
   return (
     <>
-      <div className="grain" />
+      <Head><title>Route Terminal — Meridian</title></Head>
       <Header />
-      <main style={{ paddingTop: 96, minHeight: "100vh" }}>
 
-        {/* ── Hero ── */}
-        <div style={{ padding: "48px 28px 0", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ maxWidth: 1200, margin: "0 auto", paddingBottom: 40 }}>
-            <span className="eyebrow" style={{ marginBottom: 20, display: "flex" }}>Route Terminal</span>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24 }}>
-              <h1 className="text-h1" style={{ maxWidth: 520 }}>
-                Calculate any<br />trade route.
-              </h1>
-              <p className="text-body-lg" style={{ color: "var(--text-2)", maxWidth: 400 }}>
-                Enter shipment details. Koda evaluates every viable corridor,
-                applies real-world distance data, filters country restrictions,
-                and ranks routes by cost, speed, and compliance risk.
-              </p>
-            </div>
-          </div>
-        </div>
+      <div style={{
+        position: "fixed",
+        inset: 0,
+        paddingTop: 96,
+        display: "grid",
+        gridTemplateColumns: "360px 1fr 340px",
+        background: "#050a12",
+        overflow: "hidden",
+      }}>
 
-        {/* ── Main Grid ── */}
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 28px" }}>
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "360px 1fr",
-            minHeight: "calc(100vh - 260px)",
-            borderRight: "1px solid var(--border)",
-          }}>
+        {/* ══ LEFT: INPUT ══ */}
+        <aside style={{ borderRight: "1px solid #1a2a3a", display: "flex", flexDirection: "column", background: "rgba(5,10,20,0.98)", overflow: "hidden" }}>
+          <PanelHeader label="SHIPMENT DETAILS" right={
+            <span style={{ fontFamily: "var(--font-body)", fontSize: 9, color: mapReady ? "#A8FF3E" : "#1e3040", letterSpacing: "0.1em" }}>
+              {mapReady ? "● LIVE" : "○ INIT"}
+            </span>
+          } />
 
-            {/* ── LEFT: Form ── */}
-            <div style={{ borderRight: "1px solid var(--border)", padding: "40px 32px" }}>
-              <p className="text-label" style={{ marginBottom: 32 }}>Shipment details</p>
+          <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 36px" }}>
 
-              {/* Goods */}
-              <FieldBlock label="What are you shipping?" required>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-                  {GOODS_CATEGORIES.map((g) => (
-                    <button
-                      key={g.id}
-                      onClick={() => setGoods(g.id)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 7,
-                        padding: "9px 11px",
-                        background: goods === g.id ? "rgba(255,255,255,0.07)" : "var(--bg-2)",
-                        border: `1px solid ${goods === g.id ? "var(--border-hi)" : "var(--border)"}`,
-                        borderRadius: "var(--radius-sm)",
-                        cursor: "pointer", transition: "all 0.14s", textAlign: "left",
-                      }}
-                    >
-                      <span style={{ fontSize: 15 }}>{g.icon}</span>
-                      <span style={{
-                        fontSize: 11, lineHeight: 1.3, fontFamily: "var(--font-body)",
-                        // FIX: was "#fff" when selected — now always uses text variable
-                        color: "var(--text-1)",
-                        fontWeight: goods === g.id ? 500 : 400,
-                      }}>
-                        {g.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </FieldBlock>
-
-              <Divider />
-
-              {/* Quantity */}
-              <FieldBlock label="Quantity" required>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    className="field"
-                    type="number"
-                    placeholder="e.g. 25"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                  <select
-                    className="field"
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                    style={{ width: 154, cursor: "pointer" }}
-                  >
-                    {QUANTITY_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                </div>
-                {quantity && (
-                  <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 6 }}>
-                    ≈ {quantityKg >= 1000
-                       ? `${(quantityKg / 1000).toFixed(1)} tonnes`
-                       : `${quantityKg} kg`} gross weight
-                  </p>
-                )}
-              </FieldBlock>
-
-              <Divider />
-
-              {/* Origin */}
-              <FieldBlock label="Origin country" required>
-                <select
-                  className="field"
-                  value={origin}
-                  onChange={(e) => setOrigin(e.target.value)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <option value="">Select origin country…</option>
-                  {COUNTRY_OPTIONS.map((c) => (
-                    <option key={c.code} value={c.code}>{c.name}</option>
-                  ))}
-                </select>
-              </FieldBlock>
-
-              <Divider />
-
-              {/* Destination */}
-              <FieldBlock label="Destination country" required>
-                <select
-                  className="field"
-                  value={dest}
-                  onChange={(e) => setDest(e.target.value)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <option value="">Select destination country…</option>
-                  {COUNTRY_OPTIONS.filter((c) => c.code !== origin).map((c) => (
-                    <option key={c.code} value={c.code}>{c.name}</option>
-                  ))}
-                </select>
-              </FieldBlock>
-
-              <Divider />
-
-              {/* Live restriction preview */}
-              {dest && goods && (
-                <RestrictionPreview destCode={dest} goods={goods} destName={destName} />
-              )}
-
-              {/* API error */}
-              {apiError && (
-                <p style={{ fontSize: 12, color: "#ef4444", marginBottom: 12, lineHeight: 1.6 }}>
-                  {apiError}
-                </p>
-              )}
-
-              {/* CTA */}
-              <button
-                className="btn btn-primary"
-                onClick={handleCalculate}
-                disabled={!canRun || loading}
-                style={{
-                  width: "100%", justifyContent: "center",
-                  padding: "14px 0", fontSize: 13, marginTop: 4,
-                  opacity: canRun ? 1 : 0.4,
-                  cursor: canRun ? "pointer" : "not-allowed",
-                }}
-              >
-                {loading ? "Calculating routes…" : "Calculate routes →"}
-              </button>
-
-              {canRun && !ran && (
-                <p style={{ fontSize: 11, color: "var(--text-3)", textAlign: "center", marginTop: 10 }}>
-                  Real distances · 160+ country trade rules
-                </p>
-              )}
-            </div>
-
-            {/* ── RIGHT: Map + Results ── */}
-            <div style={{ padding: "40px 40px", display: "flex", flexDirection: "column", gap: 36 }}>
-
-              {/* Globe */}
-              <div>
-                {origin && dest
-                  ? (
-                    <>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                        <p className="text-label">{originName} → {destName}</p>
-                        {result?.routes?.length > 0 && (
-                          <div style={{ display: "flex", gap: 16 }}>
-                            {result.routes.slice(0, 3).map((r, i) => (
-                              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <div style={{ width: 18, height: 2.5, background: ROUTE_COLORS[i], borderRadius: 1, boxShadow: `0 0 5px ${ROUTE_COLORS[i]}88` }} />
-                                <span style={{ fontSize: 10, color: ROUTE_COLORS[i], fontFamily: "var(--font-body)", fontWeight: 600 }}>#{i + 1}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div style={{
-                        height: 360,
-                        border: "1px solid var(--border)",
-                        borderRadius: "var(--radius-sm)",
-                        overflow: "hidden",
-                      }}>
-                        <MapboxRouteGlobe
-                          key={mapKey}
-                          routes={result?.routes ?? []}
-                          originCoords={result?.originCoords ?? COUNTRIES[origin]}
-                          destCoords={result?.destCoords ?? COUNTRIES[dest]}
-                        />
-                      </div>
-                    </>
-                  )
-                  : (
-                    <div style={{ height: 360 }}>
-                      <EmptyGlobe />
-                    </div>
-                  )
-                }
-              </div>
-
-              {/* Loading skeletons */}
-              {loading && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} style={{
-                      height: 72, background: "var(--bg-1)", border: "1px solid var(--border)",
-                      borderRadius: "var(--radius-sm)",
-                      opacity: 1 - i * 0.18,
-                      animation: "pulse 1.4s ease infinite",
-                      animationDelay: `${i * 0.12}s`,
-                    }} />
-                  ))}
-                  <style>{`@keyframes pulse{0%,100%{opacity:.45}50%{opacity:.9}}`}</style>
-                </div>
-              )}
-
-              {/* Route results */}
-              {!loading && result && (
-                <RouteResults
-                  result={result}
-                  goodsLabel={goodsLabel}
-                  goodsIcon={goodsIcon}
-                  originName={originName}
-                  destName={destName}
-                  quantityKg={quantityKg}
+            <FieldLabel>WHAT ARE YOU SHIPPING?</FieldLabel>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 22 }}>
+              {PRODUCTS.map(p => (
+                <ProductBtn
+                  key={p.id}
+                  p={p}
+                  active={product === p.id}
+                  onClick={() => setProduct(product === p.id ? null : p.id)}
                 />
-              )}
+              ))}
+            </div>
 
-              {/* How it works — empty state */}
-              {!loading && !ran && (
-                <HowItWorks />
-              )}
+            <FieldLabel>QUANTITY</FieldLabel>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 22 }}>
+              <TermInput type="number" placeholder="e.g. 25" value={qty} onChange={e => setQty(e.target.value)} />
+              <TermSelect value={unit} onChange={e => setUnit(e.target.value)}>
+                {UNITS.map(u => <option key={u}>{u}</option>)}
+              </TermSelect>
+            </div>
+
+            <FieldLabel>ORIGIN COUNTRY</FieldLabel>
+            <TermSelect value={origin} onChange={e => setOrigin(e.target.value)} style={{ marginBottom: 16 }}>
+              <option value="">Select origin…</option>
+              {COUNTRIES.map(c => <option key={c}>{c}</option>)}
+            </TermSelect>
+
+            <FieldLabel>DESTINATION COUNTRY</FieldLabel>
+            <TermSelect value={destination} onChange={e => setDestination(e.target.value)} style={{ marginBottom: 28 }}>
+              <option value="">Select destination…</option>
+              {COUNTRIES.map(c => <option key={c}>{c}</option>)}
+            </TermSelect>
+
+            {origin && destination && origin === destination && (
+              <div style={{ marginBottom: 16, padding: "8px 12px", background: "rgba(255,107,53,0.08)", border: "1px solid rgba(255,107,53,0.3)", borderRadius: 3 }}>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "#FF6B35" }}>
+                  Origin and destination must differ.
+                </span>
+              </div>
+            )}
+
+            <button
+              onClick={handleCalc}
+              disabled={!canCalc || loading}
+              style={{
+                width: "100%",
+                padding: "14px",
+                background: canCalc && !loading ? "#00D4FF" : "rgba(0,212,255,0.05)",
+                color: canCalc && !loading ? "#000" : "#1a3a4a",
+                border: `1px solid ${canCalc && !loading ? "#00D4FF" : "#1a2a3a"}`,
+                borderRadius: 3,
+                cursor: canCalc && !loading ? "pointer" : "not-allowed",
+                fontFamily: "var(--font-display)",
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                transition: "all 0.2s",
+              }}
+            >
+              {loading ? "COMPUTING…" : "CALCULATE ROUTES →"}
+            </button>
+
+            <div style={{ marginTop: 30, paddingTop: 22, borderTop: "1px solid #1a2a3a" }}>
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 9, color: "#2a4050", letterSpacing: "0.18em", marginBottom: 16 }}>
+                HOW THIS WORKS
+              </div>
+              {[
+                ["01", "Select your goods",        "Commodity-specific trade rules are applied for your product category."],
+                ["02", "Set origin & destination", "Country-level restrictions and bans are checked instantly."],
+                ["03", "Get real-distance routes", "Haversine distances via real port hubs produce realistic transit times."],
+                ["04", "Review ranked options",    "Routes scored by cost, speed, and compliance burden."],
+              ].map(([n, t, d]) => (
+                <div key={n} style={{ display: "flex", gap: 14, marginBottom: 16 }}>
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: 11, color: "#1e3040", fontWeight: 700, flexShrink: 0, paddingTop: 1 }}>{n}</span>
+                  <div>
+                    <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "#7abacc", fontWeight: 500, marginBottom: 3 }}>{t}</div>
+                    <div style={{ fontFamily: "var(--font-body)", fontSize: 10, color: "#2a4050", lineHeight: 1.6 }}>{d}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      </main>
-      <Footer />
+        </aside>
+
+        {/* ══ CENTER: GLOBE ══ */}
+        <main style={{ position: "relative", overflow: "hidden" }}>
+          <GlobeMap
+            origin={origin}
+            destination={destination}
+            routes={routes}
+            activeRouteIdx={activeRoute}
+            onReady={() => setMapReady(true)}
+          />
+
+          {/* Top-left HUD */}
+          <div style={{
+            position: "absolute", top: 16, left: 16,
+            background: "rgba(5,10,20,0.88)", border: "1px solid #1a2a3a",
+            borderRadius: 3, padding: "10px 16px", pointerEvents: "none",
+            backdropFilter: "blur(8px)",
+          }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 9, color: "#2a4050", letterSpacing: "0.2em", marginBottom: 4 }}>
+              MERIDIAN · ROUTE TERMINAL
+            </div>
+            <div style={{ fontFamily: "var(--font-body)", fontSize: 10, color: "#00D4FF", letterSpacing: "0.08em" }}>
+              {time}
+            </div>
+          </div>
+
+          {/* Route legend */}
+          {calculated && (
+            <div style={{
+              position: "absolute", top: 16, right: 16,
+              background: "rgba(5,10,20,0.88)", border: "1px solid #1a2a3a",
+              borderRadius: 3, padding: "10px 14px", backdropFilter: "blur(8px)",
+            }}>
+              {routes.map((r, i) => (
+                <div
+                  key={i}
+                  onClick={() => setActiveRoute(i)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    marginBottom: i < routes.length - 1 ? 8 : 0,
+                    cursor: "pointer",
+                    opacity: activeRoute === i ? 1 : 0.4,
+                    transition: "opacity 0.15s",
+                  }}
+                >
+                  <div style={{ width: 18, height: 2, background: r.color, borderRadius: 1, flexShrink: 0 }} />
+                  <span style={{ fontFamily: "var(--font-body)", fontSize: 9, color: r.color, letterSpacing: "0.08em" }}>
+                    ROUTE {i + 1} · {r.mode.replace("_", "+").toUpperCase()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Bottom status bar */}
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            background: "rgba(5,10,20,0.92)", borderTop: "1px solid #1a2a3a",
+            padding: "9px 20px", display: "flex", alignItems: "center", gap: 28,
+            pointerEvents: "none", backdropFilter: "blur(8px)",
+          }}>
+            {[
+              { k: "STATUS",    v: loading ? "COMPUTING" : calculated ? "ROUTES READY" : mapReady ? "STANDBY" : "LOADING" },
+              { k: "CORRIDORS", v: "2,400+" },
+              { k: "COUNTRIES", v: "160+"   },
+              { k: "PORTS",     v: "3,200+" },
+            ].map(({ k, v }) => (
+              <div key={k} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 8, color: "#2a4050", letterSpacing: "0.16em" }}>{k}</span>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 8, color: "#00D4FF", letterSpacing: "0.1em" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Computing overlay */}
+          {loading && (
+            <div style={{
+              position: "absolute", inset: 0,
+              background: "rgba(5,10,20,0.5)",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center", gap: 16,
+            }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 11, color: "#00D4FF", letterSpacing: "0.32em" }}>
+                COMPUTING ROUTES
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {[0,1,2,3,4].map(i => (
+                  <div key={i} style={{
+                    width: 5, height: 5, borderRadius: "50%", background: "#00D4FF",
+                    animation: `termPulse 1s ${i * 0.15}s ease-in-out infinite`,
+                  }} />
+                ))}
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* ══ RIGHT: RESULTS ══ */}
+        <aside style={{ borderLeft: "1px solid #1a2a3a", display: "flex", flexDirection: "column", background: "rgba(5,10,20,0.98)", overflow: "hidden" }}>
+          <PanelHeader label="ROUTE INTELLIGENCE" right={
+            calculated
+              ? <span style={{ fontFamily: "var(--font-body)", fontSize: 9, color: "#A8FF3E", letterSpacing: "0.1em" }}>{routes.length} ROUTES</span>
+              : null
+          } />
+
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+            {!calculated && !loading && <EmptyState />}
+            {loading && <SkeletonCards />}
+            {calculated && routes.map((r, i) => (
+              <RouteCard
+                key={i}
+                route={r}
+                idx={i}
+                active={activeRoute === i}
+                onClick={() => setActiveRoute(i)}
+              />
+            ))}
+            {calculated && (
+              <SummaryPanel
+                product={product}
+                qty={qty}
+                unit={unit}
+                origin={origin}
+                destination={destination}
+                routes={routes}
+              />
+            )}
+          </div>
+        </aside>
+      </div>
+
+      <style>{`
+        @keyframes termPulse {
+          0%,100% { opacity:0.15; transform:scale(0.7); }
+          50%      { opacity:1;   transform:scale(1.2); }
+        }
+        ::-webkit-scrollbar { width:2px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:#1a2a3a; border-radius:2px; }
+        select option { background:#050a12; color:#fff; }
+        .mapboxgl-popup-content {
+          background:transparent !important;
+          box-shadow:none !important;
+          padding:0 !important;
+        }
+        .mapboxgl-popup-tip { display:none !important; }
+        .mapboxgl-ctrl-group {
+          background:rgba(5,10,20,0.92) !important;
+          border:1px solid #1a2a3a !important;
+          border-radius:3px !important;
+        }
+        .mapboxgl-ctrl-group button { background:transparent !important; }
+        .mapboxgl-ctrl-icon { filter:invert(0.7) !important; }
+        .mapboxgl-ctrl-attrib { display:none !important; }
+      `}</style>
     </>
   );
 }
 
-// ─── Field wrapper ────────────────────────────────────────────────────────────
-function FieldBlock({ label, required, children }) {
+// ─── UI COMPONENTS ────────────────────────────────────────────────────────────
+
+function PanelHeader({ label, right }) {
   return (
-    <div style={{ marginBottom: 22 }}>
-      <label style={{
-        display: "block", fontSize: 11, fontWeight: 600,
-        letterSpacing: "0.12em", textTransform: "uppercase",
-        color: "var(--text-3)", marginBottom: 11,
-        fontFamily: "var(--font-body)",
-      }}>
-        {label}
-        {required && <span style={{ color: "var(--border-hi)", marginLeft: 4 }}>*</span>}
-      </label>
+    <div style={{
+      padding: "12px 20px",
+      borderBottom: "1px solid #1a2a3a",
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      flexShrink: 0,
+    }}>
+      <span style={{ fontFamily: "var(--font-body)", fontSize: 9, letterSpacing: "0.2em", color: "#00D4FF", textTransform: "uppercase", fontWeight: 600 }}>
+        ◆ {label}
+      </span>
+      {right}
+    </div>
+  );
+}
+
+function FieldLabel({ children }) {
+  return (
+    <div style={{ fontFamily: "var(--font-body)", fontSize: 9, color: "#3a5060", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 8 }}>
       {children}
     </div>
   );
 }
 
-function Divider() {
-  return <div style={{ height: 1, background: "var(--border)", margin: "6px 0 22px" }} />;
-}
-
-// ─── Live restriction banner ──────────────────────────────────────────────────
-function RestrictionPreview({ destCode, goods, destName }) {
-  const check = checkCountryRestriction(destCode, goods);
-
-  if (check.type === "ok") return (
-    <div style={{
-      display: "flex", gap: 9, alignItems: "flex-start",
-      background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.18)",
-      borderRadius: "var(--radius-sm)", padding: "11px 13px", marginBottom: 18,
-    }}>
-      <span style={{ fontSize: 13 }}>✓</span>
-      <p style={{ fontSize: 12, color: "#4ade80", lineHeight: 1.6 }}>
-        No import ban detected for this category in {destName}.
-      </p>
-    </div>
-  );
-
-  if (check.blocked) return (
-    <div style={{
-      display: "flex", gap: 9, alignItems: "flex-start",
-      background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.22)",
-      borderRadius: "var(--radius-sm)", padding: "11px 13px", marginBottom: 18,
-    }}>
-      <span style={{ fontSize: 13 }}>⛔</span>
-      <div>
-        <p style={{ fontSize: 12, color: "#ef4444", fontWeight: 600, marginBottom: 4 }}>
-          {destName} bans this goods category
-        </p>
-        <p style={{ fontSize: 11, color: "rgba(239,68,68,0.75)", lineHeight: 1.6 }}>{check.reason}</p>
-      </div>
-    </div>
-  );
-
+function ProductBtn({ p, active, onClick }) {
   return (
-    <div style={{
-      display: "flex", gap: 9, alignItems: "flex-start",
-      background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.22)",
-      borderRadius: "var(--radius-sm)", padding: "11px 13px", marginBottom: 18,
-    }}>
-      <span style={{ fontSize: 13 }}>⚠️</span>
-      <div>
-        <p style={{ fontSize: 12, color: "#f59e0b", fontWeight: 600, marginBottom: 4 }}>
-          Restrictions apply in {destName}
-        </p>
-        <p style={{ fontSize: 11, color: "rgba(245,158,11,0.75)", lineHeight: 1.6 }}>{check.reason}</p>
-      </div>
-    </div>
+    <button
+      onClick={onClick}
+      style={{
+        background: active ? "rgba(0,212,255,0.10)" : "rgba(255,255,255,0.02)",
+        border: `1px solid ${active ? "#00D4FF" : "#1a2a3a"}`,
+        borderRadius: 3,
+        padding: "8px 8px",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 7,
+        transition: "all 0.15s",
+        textAlign: "left",
+      }}
+    >
+      <span style={{ fontSize: 13, lineHeight: 1 }}>{p.emoji}</span>
+      <span style={{ fontFamily: "var(--font-body)", fontSize: 9, color: active ? "#00D4FF" : "#5a7888", letterSpacing: "0.04em", lineHeight: 1.35 }}>
+        {p.label}
+      </span>
+    </button>
   );
 }
 
-// ─── Route results section ────────────────────────────────────────────────────
-function RouteResults({ result, goodsLabel, goodsIcon, originName, destName, quantityKg }) {
-  const { routes, blockedCountries, warnings } = result;
-
+function TermInput({ style, onFocus, onBlur, ...props }) {
+  const [focused, setFocused] = useState(false);
   return (
-    <div>
-      {/* Summary */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <p style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 3 }}>
-            {goodsIcon} {goodsLabel}
-          </p>
-          <p style={{ fontSize: 12, color: "var(--text-3)" }}>
-            {originName} → {destName} ·{" "}
-            {quantityKg >= 1000 ? `${(quantityKg / 1000).toFixed(1)} t` : `${quantityKg} kg`}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 20 }}>
-          <StatPill value={routes.length} label="Routes" />
-          {blockedCountries.length > 0 && (
-            <StatPill value={blockedCountries.length} label="Avoided" danger />
-          )}
-        </div>
-      </div>
-
-      {/* Warnings */}
-      {warnings.map((w, i) => (
-        <AlertBand key={i} color="#f59e0b" message={w} />
-      ))}
-
-      {/* Blocked countries */}
-      {blockedCountries.length > 0 && (
-        <AlertBand
-          color="#ef4444"
-          heading="Routes via restricted countries removed"
-          message={`${blockedCountries.map((c) => COUNTRIES[c]?.name).join(", ")} — restricted for this category. All transiting routes have been excluded.`}
-        />
-      )}
-
-      {/* No results */}
-      {routes.length === 0 && (
-        <div style={{
-          padding: "40px 28px", textAlign: "center",
-          border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
-        }}>
-          <p style={{ fontSize: 32, marginBottom: 12 }}>⛔</p>
-          <p style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No viable routes</p>
-          <p style={{ fontSize: 13, color: "var(--text-2)", maxWidth: 340, margin: "0 auto", lineHeight: 1.7 }}>
-            The destination bans this goods category, or all corridor options are restricted.
-            Consider an alternate goods classification or contact our trade specialists.
-          </p>
-        </div>
-      )}
-
-      {/* Route cards */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {routes.map((route, i) => (
-          <RouteCard key={route.id} route={route} rank={i + 1} color={ROUTE_COLORS[i] ?? "#666"} />
-        ))}
-      </div>
-    </div>
+    <input
+      {...props}
+      onFocus={e => { setFocused(true); onFocus?.(e); }}
+      onBlur={e => { setFocused(false); onBlur?.(e); }}
+      style={{
+        background: "rgba(255,255,255,0.02)",
+        border: `1px solid ${focused ? "#00D4FF" : "#1a2a3a"}`,
+        borderRadius: 3,
+        padding: "9px 12px",
+        color: "#fff",
+        fontFamily: "var(--font-body)",
+        fontSize: 13,
+        width: "100%",
+        outline: "none",
+        transition: "border-color 0.15s",
+        ...style,
+      }}
+    />
   );
 }
 
-function StatPill({ value, label, danger }) {
+function TermSelect({ children, style, ...props }) {
   return (
-    <div style={{ textAlign: "center" }}>
-      <p style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: danger ? "#ef4444" : "var(--text-1)" }}>{value}</p>
-      <p style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</p>
-    </div>
+    <select
+      {...props}
+      style={{
+        background: "rgba(255,255,255,0.02)",
+        border: "1px solid #1a2a3a",
+        borderRadius: 3,
+        padding: "9px 28px 9px 12px",
+        color: "#fff",
+        fontFamily: "var(--font-body)",
+        fontSize: 13,
+        width: "100%",
+        outline: "none",
+        cursor: "pointer",
+        appearance: "none",
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233a5060'/%3E%3C/svg%3E")`,
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "right 10px center",
+        ...style,
+      }}
+    >
+      {children}
+    </select>
   );
 }
 
-function AlertBand({ color, heading, message }) {
+function RouteCard({ route, idx, active, onClick }) {
+  const scoreColor = route.score >= 90 ? "#A8FF3E" : route.score >= 80 ? "#FFD700" : "#FF6B35";
   return (
-    <div style={{
-      background: `${color}0A`, border: `1px solid ${color}30`,
-      borderRadius: "var(--radius-sm)", padding: "11px 14px", marginBottom: 10,
-    }}>
-      {heading && <p style={{ fontSize: 12, color, fontWeight: 600, marginBottom: 4 }}>{heading}</p>}
-      <p style={{ fontSize: 12, color: `${color}CC`, lineHeight: 1.65 }}>{message}</p>
-    </div>
-  );
-}
-
-// ─── Individual route card ────────────────────────────────────────────────────
-function RouteCard({ route, rank, color }) {
-  const [expanded, setExpanded] = useState(rank === 1);
-  const isTop = rank === 1;
-
-  const scoreColor = route.score >= 80 ? "#4ade80" : route.score >= 60 ? "#f59e0b" : "#ef4444";
-  const estCost    = route.estimatedCostUSD
-    ? `~$${route.estimatedCostUSD.toLocaleString()}`
-    : "Request quote";
-
-  return (
-    <div style={{
-      border: `1px solid ${isTop ? color + "60" : "var(--border)"}`,
-      borderLeft: `3px solid ${color}`,
-      borderRadius: "var(--radius-sm)",
-      background: isTop ? "rgba(255,255,255,0.025)" : "var(--bg)",
-      overflow: "hidden",
-    }}>
-      {/* Header */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", gap: 14,
-          padding: "16px 20px", background: "none", border: "none",
-          cursor: "pointer", textAlign: "left",
-        }}
-      >
-        <span style={{
-          fontFamily: "var(--font-display)", fontSize: 11, fontWeight: 600,
-          color: "var(--text-3)", minWidth: 20,
-        }}>#{rank}</span>
-
-        {/* Mode badge */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 5,
-          padding: "3px 9px",
-          background: `${color}15`, border: `1px solid ${color}35`,
-          borderRadius: 2, flexShrink: 0,
-        }}>
-          <span style={{ fontSize: 11 }}>{MODE_ICONS[route.mode] ?? "📦"}</span>
-          <span style={{ fontSize: 10, fontWeight: 600, color, letterSpacing: "0.04em" }}>{route.mode}</span>
-        </div>
-
-        {/* FIX: Route label — was fontWeight 700 and color #000000, now matches page style */}
-        <span style={{
-          fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 500,
-          color: "var(--text-1)", flex: 1, letterSpacing: "-0.01em",
-        }}>
-          {route.label}
-        </span>
-
-        {/* Stats */}
-        <div style={{ display: "flex", gap: 18, alignItems: "center", flexShrink: 0 }}>
-          <div style={{ textAlign: "right" }}>
-            {/* FIX: was fontWeight 600 and color #000000 */}
-            <p style={{ fontSize: 13, fontWeight: 400, color: "var(--text-1)" }}>
-              {route.days[0]}–{route.days[1]}d
-            </p>
-            <p style={{ fontSize: 10, color: "var(--text-3)" }}>transit</p>
-          </div>
-          {route.distanceKm && (
-            <div style={{ textAlign: "right" }}>
-              {/* FIX: was fontWeight 600 and color #000000 */}
-              <p style={{ fontSize: 13, fontWeight: 400, color: "var(--text-1)" }}>
-                {route.distanceKm >= 1000
-                  ? `${(route.distanceKm / 1000).toFixed(1)}k km`
-                  : `${route.distanceKm} km`}
-              </p>
-              <p style={{ fontSize: 10, color: "var(--text-3)" }}>distance</p>
-            </div>
-          )}
-          <div style={{ textAlign: "right" }}>
-            {/* FIX: was fontWeight 600 and color #000000 */}
-            <p style={{ fontSize: 13, fontWeight: 400, color: "var(--text-1)" }}>{estCost}</p>
-            <p style={{ fontSize: 10, color: "var(--text-3)" }}>estimated</p>
-          </div>
+    <div
+      onClick={onClick}
+      style={{
+        background: active ? `rgba(${hexRgb(route.color)},0.06)` : "rgba(255,255,255,0.015)",
+        border: `1px solid ${active ? route.color + "55" : "#1a2a3a"}`,
+        borderLeft: `3px solid ${active ? route.color : idx === 0 ? route.color + "55" : "#1a2a3a"}`,
+        borderRadius: 3,
+        padding: "14px",
+        marginBottom: 10,
+        cursor: "pointer",
+        transition: "all 0.15s",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{
-            width: 36, height: 36, borderRadius: "50%",
-            background: `${scoreColor}18`, border: `1.5px solid ${scoreColor}45`,
+            width: 16, height: 16, borderRadius: "50%",
+            background: `rgba(${hexRgb(route.color)},0.15)`,
+            border: `1px solid ${route.color}`,
             display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
           }}>
-            <span style={{ fontFamily: "var(--font-display)", fontSize: 12, fontWeight: 700, color: scoreColor }}>
-              {route.score}
+            <span style={{ fontFamily: "var(--font-display)", fontSize: 8, color: route.color, fontWeight: 700 }}>
+              {idx + 1}
             </span>
           </div>
-          <span style={{ fontSize: 10, color: "var(--text-3)" }}>{expanded ? "▲" : "▼"}</span>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 9, color: route.color, letterSpacing: "0.08em", fontWeight: 700, lineHeight: 1.3 }}>
+            {route.label.toUpperCase()}
+          </span>
         </div>
-      </button>
+        <span style={{ fontFamily: "var(--font-display)", fontSize: 11, color: scoreColor, fontWeight: 700, flexShrink: 0 }}>
+          {route.score}/100
+        </span>
+      </div>
 
-      {/* Body */}
-      {expanded && (
-        <div style={{
-          borderTop: "1px solid var(--border)", padding: "14px 20px 18px",
-          display: "flex", flexDirection: "column", gap: 14,
-        }}>
-          {/* Route path */}
-          {route.waypoints?.length > 0 && (
-            <div>
-              <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-3)", marginBottom: 8 }}>Route path</p>
-              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                {route.waypoints.map((wp, i) => (
-                  <span key={i} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <span style={{
-                      fontSize: 12, fontFamily: "var(--font-body)", fontWeight: 400,
-                      // FIX: was "#fff" for first/last waypoints — now all use text variable
-                      color: "var(--text-2)",
-                      padding: "3px 9px",
-                      // FIX: was "rgba(255,255,255,0.07)" for first/last — now uniform
-                      background: "var(--bg-2)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 2,
-                    }}>
-                      {wp.name}
-                    </span>
-                    {i < route.waypoints.length - 1 && (
-                      <span style={{ fontSize: 9, color: "var(--text-4)" }}>▶</span>
-                    )}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+      {/* Score bar */}
+      <div style={{ height: 2, background: "#0d1d2a", borderRadius: 1, marginBottom: 10 }}>
+        <div style={{ width: `${route.score}%`, height: "100%", background: route.color, borderRadius: 1 }} />
+      </div>
 
-          {/* Required docs */}
-          {route.requirements?.length > 0 && (
-            <div>
-              <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-3)", marginBottom: 8 }}>Required documentation</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                {route.requirements.map((req, i) => (
-                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                    <span style={{ fontSize: 11, color: "#f59e0b", marginTop: 1 }}>→</span>
-                    <span style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.55 }}>{req}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
+        {[
+          { k: "COST",     v: route.cost },
+          { k: "TRANSIT",  v: `${route.days}d` },
+          { k: "DIST",     v: `${Math.round(route.distance / 100) / 10}k km` },
+        ].map(({ k, v }) => (
+          <div key={k} style={{ background: "rgba(255,255,255,0.02)", padding: "6px 8px", borderRadius: 2 }}>
+            <div style={{ fontFamily: "var(--font-body)", fontSize: 7, color: "#2a4050", letterSpacing: "0.14em", marginBottom: 3 }}>{k}</div>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 11, color: "#fff", fontWeight: 600 }}>{v}</div>
+          </div>
+        ))}
+      </div>
 
-          {/* Compliance notes */}
-          {route.warnings?.length > 0 && (
-            <div>
-              <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-3)", marginBottom: 8 }}>Compliance notes</p>
-              {route.warnings.map((w, i) => (
-                <p key={i} style={{ fontSize: 12, color: "rgba(245,158,11,0.85)", lineHeight: 1.65, marginBottom: 4 }}>{w}</p>
-              ))}
-            </div>
-          )}
-
-          {/* Clean route */}
-          {!route.warnings?.length && !route.requirements?.length && (
-            <p style={{ fontSize: 12, color: "#4ade80" }}>
-              ✓ No additional documentation or compliance requirements detected for this route.
-            </p>
-          )}
+      {/* Via hubs */}
+      {route.hubLabels.length > 0 && (
+        <div style={{ marginBottom: 8 }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 8, color: "#2a4050", letterSpacing: "0.12em" }}>VIA  </span>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 9, color: "#5a8898" }}>
+            {route.hubLabels.join(" → ")}
+          </span>
         </div>
       )}
+
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {idx === 0 && <Tag color="#A8FF3E">✓ RECOMMENDED</Tag>}
+        {route.note && <Tag color="#FF6B35">⚠ {route.note}</Tag>}
+      </div>
     </div>
   );
 }
 
-// ─── How it works (empty state) ───────────────────────────────────────────────
-function HowItWorks() {
-  const steps = [
-    { step: "01", title: "Select your goods",        desc: "Commodity-specific trade rules are applied for your product category across all evaluated corridors." },
-    { step: "02", title: "Set origin & destination",  desc: "Country-level restrictions, bans, and certification requirements are checked the moment you select." },
-    { step: "03", title: "Get real-distance routes",  desc: "Haversine and Mapbox distances are combined to produce realistic transit times and landed costs per route." },
-    { step: "04", title: "Review ranked options",     desc: "Routes are scored by cost, speed, and compliance burden. Required docs are surfaced per route." },
-  ];
-
+function Tag({ color, children }) {
   return (
-    <div>
-      <p className="text-label" style={{ marginBottom: 20 }}>How this works</p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 0, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}>
-        {steps.map((item, i) => (
-          <div key={i} style={{
-            display: "grid", gridTemplateColumns: "44px 1fr",
-            gap: 18, padding: "20px 22px",
-            borderBottom: i < steps.length - 1 ? "1px solid var(--border)" : "none",
-          }}>
-            <span style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 800, color: "var(--text-4)", lineHeight: 1 }}>
-              {item.step}
-            </span>
-            <div>
-              <p style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 600, marginBottom: 4, letterSpacing: "-0.01em" }}>{item.title}</p>
-              <p style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.65 }}>{item.desc}</p>
-            </div>
-          </div>
-        ))}
+    <span style={{
+      fontFamily: "var(--font-body)",
+      fontSize: 8, color,
+      padding: "3px 7px",
+      background: `rgba(${hexRgb(color)},0.07)`,
+      border: `1px solid rgba(${hexRgb(color)},0.25)`,
+      borderRadius: 2,
+      letterSpacing: "0.1em",
+    }}>
+      {children}
+    </span>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      justifyContent: "center", minHeight: 260, gap: 16, padding: "32px",
+    }}>
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="23" stroke="#1a2a3a" strokeWidth="1"/>
+        <ellipse cx="24" cy="24" rx="10" ry="23" stroke="#1a2a3a" strokeWidth="0.8"/>
+        <line x1="1" y1="24" x2="47" y2="24" stroke="#1a2a3a" strokeWidth="0.8"/>
+        <circle cx="24" cy="24" r="3" stroke="#2a4050" strokeWidth="1"/>
+      </svg>
+      <div style={{ fontFamily: "var(--font-body)", fontSize: 9, color: "#2a4050", letterSpacing: "0.18em", textAlign: "center", lineHeight: 2.4 }}>
+        SELECT CARGO TYPE<br />SET ORIGIN & DESTINATION<br />RUN ROUTE ANALYSIS
       </div>
     </div>
   );
+}
+
+function SkeletonCards() {
+  return (
+    <div>
+      {[1, 0.7, 0.4].map((opacity, i) => (
+        <div key={i} style={{
+          border: "1px solid #1a2a3a", borderRadius: 3,
+          padding: "16px", marginBottom: 10, opacity,
+        }}>
+          <div style={{ width: "60%", height: 8, background: "#1a2a3a", borderRadius: 2, marginBottom: 10 }} />
+          <div style={{ height: 2, background: "#0d1d2a", marginBottom: 10 }} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+            {[0,1,2].map(j => (
+              <div key={j} style={{ height: 38, background: "#0d1d2a", borderRadius: 2 }} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SummaryPanel({ product, qty, unit, origin, destination, routes }) {
+  const prod = PRODUCTS.find(p => p.id === product);
+  return (
+    <div style={{
+      marginTop: 8, padding: "14px",
+      background: "rgba(0,212,255,0.03)",
+      border: "1px solid #1a2a3a", borderRadius: 3,
+    }}>
+      <div style={{ fontFamily: "var(--font-body)", fontSize: 9, color: "#2a4050", letterSpacing: "0.18em", marginBottom: 12 }}>
+        CORRIDOR SUMMARY
+      </div>
+      {[
+        ["CARGO",        `${prod?.emoji} ${prod?.label}`],
+        ["QUANTITY",     `${qty} ${unit}`],
+        ["ORIGIN",       origin],
+        ["DESTINATION",  destination],
+        ["BEST ROUTE",   routes[0]?.label],
+        ["EST. TRANSIT", `${routes[0]?.days} days`],
+        ["EST. COST",    routes[0]?.cost],
+      ].map(([k, v]) => (
+        <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 7, gap: 12 }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 9, color: "#3a5060", letterSpacing: "0.1em", flexShrink: 0 }}>{k}</span>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 9, color: "#fff", textAlign: "right" }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── UTIL ─────────────────────────────────────────────────────────────────────
+function hexRgb(hex) {
+  return [
+    parseInt(hex.slice(1, 3), 16),
+    parseInt(hex.slice(3, 5), 16),
+    parseInt(hex.slice(5, 7), 16),
+  ].join(",");
 }
