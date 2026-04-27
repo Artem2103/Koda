@@ -486,7 +486,7 @@ export default function TerminalPage() {
 
   return (
     <>
-      <Head><title>Route Terminal — Meridian</title></Head>
+      <Head><title>Route Terminal — Koda</title></Head>
       <Header />
 
       <div style={{
