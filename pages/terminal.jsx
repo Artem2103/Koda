@@ -5,7 +5,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import Header from "@/components/Header";
 
 // ─── ROUTE COLORS ─────────────────────────────────────────────────────────────
-const ROUTE_COLORS = ["#00D4FF", "#FF6B35", "#A8FF3E"];
+const ROUTE_COLORS = ["#005BFF", "#FF0000", "#00FF00"];
 
 // ─── PRODUCTS ─────────────────────────────────────────────────────────────────
 const PRODUCTS = [
@@ -164,7 +164,54 @@ function routeDist(waypoints) {
   return total;
 }
 
-function buildRoutes(origin, destination, product) {
+function quantityToTons(quantity, unitType) {
+  const q = Math.max(0, Number(quantity) || 0);
+  const factors = {
+    tonnes: 1,
+    kg: 0.001,
+    units: 0.015,
+    pallets: 0.55,
+    "containers (20ft)": 12,
+    "containers (40ft)": 24,
+    litres: 0.00085,
+  };
+  return q * (factors[unitType] || 1);
+}
+
+function priceRoute({ distanceKm, hubsCount, product, mode, quantity, unitType }) {
+  const tons = Math.max(0.25, quantityToTons(quantity, unitType));
+  const productRisk = {
+    fresh_produce: 1.12,
+    electronics: 1.18,
+    pharmaceuticals: 1.28,
+    confectionery: 1.04,
+    alcohol: 1.08,
+    textiles: 1.0,
+    industrial: 1.22,
+    arms: 1.7,
+    vehicles: 1.2,
+    livestock: 1.3,
+    timber: 1.06,
+    minerals: 0.96,
+  };
+  const modeBasePerTonKm = { air: 0.68, ocean: 0.1, rail_ocean: 0.18 };
+  const handlingPerHub = { air: 520, ocean: 980, rail_ocean: 810 };
+  const modeSecurity = { air: 1.12, ocean: 1.02, rail_ocean: 1.06 };
+
+  const perTonKm = modeBasePerTonKm[mode] || 0.2;
+  const handling = (handlingPerHub[mode] || 600) * (hubsCount + 1);
+  const risk = productRisk[product] || 1.08;
+  const security = modeSecurity[mode] || 1.05;
+  const fuelSurcharge = mode === "air" ? 0.18 : 0.11;
+  const insurance = 0.04;
+  const marketVolatility = 1 + Math.min(0.08, Math.max(0.01, distanceKm / 200000));
+
+  const freight = distanceKm * perTonKm * tons;
+  const landedCost = (freight + handling) * (1 + fuelSurcharge + insurance) * risk * security * marketVolatility;
+  return Math.round(landedCost);
+}
+
+function buildRoutes(origin, destination, product, quantity, unitType) {
   const od = COUNTRY_DATA[origin];
   const dd = COUNTRY_DATA[destination];
   if (!od || !dd) return [];
@@ -175,17 +222,20 @@ function buildRoutes(origin, destination, product) {
   const originHubs = od.hubs.filter(h => !avoid.has(h));
   const destHubs   = dd.hubs.filter(h => !avoid.has(h));
 
+  const qtyTons = quantityToTons(quantity, unitType);
+  const airNotFeasible = unitType.includes("containers") || qtyTons > 38;
+
   const strategies = [
-    // 1. Air freight — direct great circle
-    {
-      label:   "Air Freight — Direct",
+    // 1. Express option (not used for heavy containerized cargo)
+    !airNotFeasible ? {
+      label:   "Express Intermodal — Air + Truck",
       mode:    "air",
       waypoints: [od.coords, dd.coords],
       hubLabels: [],
-      speedKmh: 850,
-      costPerKm: 7.8,
+      speedKmh: 640,
+      costPerKm: 4.8,
       dashArray: [1],
-    },
+    } : null,
     // 2. Ocean — via primary hubs on each side
     originHubs[0] && destHubs[0] && originHubs[0] !== destHubs[0]
       ? {
@@ -226,7 +276,7 @@ function buildRoutes(origin, destination, product) {
         hubLabels: hls,
         speedKmh: 52,
         costPerKm: 1.15,
-        dashArray: [6, 3],
+        dashArray: [1],
       };
     })(),
   ].filter(Boolean).slice(0, 3);
@@ -234,8 +284,15 @@ function buildRoutes(origin, destination, product) {
   return strategies.map((s, i) => {
     const d    = routeDist(s.waypoints);
     const days = Math.round(d / s.speedKmh / 24) + s.hubLabels.length;
-    const cost = Math.round(d * s.costPerKm * (0.95 + Math.random() * 0.1));
-    const score = Math.min(99, Math.max(62, 97 - i * 7 - (days > 60 ? 6 : 0)));
+    const cost = priceRoute({
+      distanceKm: d,
+      hubsCount: s.hubLabels.length,
+      product,
+      mode: s.mode,
+      quantity,
+      unitType,
+    });
+    const score = Math.min(99, Math.max(62, 97 - i * 7 - (days > 60 ? 6 : 0) - (s.mode === "air" ? 2 : 0)));
     return {
       ...s,
       rank: i + 1,
@@ -258,12 +315,56 @@ function arcSegment(p1, p2, steps = 60) {
 }
 
 function buildLine(waypoints) {
-  let out = [];
-  for (let i = 1; i < waypoints.length; i++) {
-    const seg = arcSegment(waypoints[i - 1], waypoints[i]);
-    out = out.concat(i === 1 ? seg : seg.slice(1));
+  if (waypoints.length <= 2) return arcSegment(waypoints[0], waypoints[1], 90);
+
+  const out = [];
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const p0 = waypoints[Math.max(0, i - 1)];
+    const p1 = waypoints[i];
+    const p2 = waypoints[i + 1];
+    const p3 = waypoints[Math.min(waypoints.length - 1, i + 2)];
+    const steps = 42;
+
+    for (let j = 0; j <= steps; j++) {
+      const t = j / steps;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const lng = 0.5 * (
+        (2 * p1[0]) +
+        (-p0[0] + p2[0]) * t +
+        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3
+      );
+      const lat = 0.5 * (
+        (2 * p1[1]) +
+        (-p0[1] + p2[1]) * t +
+        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3
+      );
+      if (i > 0 && j === 0) continue;
+      out.push([lng, lat]);
+    }
   }
   return out;
+}
+
+function offsetLineCoordinates(coords, routeIndex, totalRoutes) {
+  if (!coords?.length || totalRoutes <= 1) return coords;
+  const center = (totalRoutes - 1) / 2;
+  const distance = (routeIndex - center) * 0.6;
+
+  return coords.map((point, idx) => {
+    if (idx === 0 || idx === coords.length - 1) return point;
+    const prev = coords[Math.max(0, idx - 1)];
+    const next = coords[Math.min(coords.length - 1, idx + 1)];
+    const dx = next[0] - prev[0];
+    const dy = next[1] - prev[1];
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const taper = Math.sin((idx / (coords.length - 1)) * Math.PI);
+    return [point[0] + nx * distance * taper, point[1] + ny * distance * taper];
+  });
 }
 
 // ─── GLOBE COMPONENT ──────────────────────────────────────────────────────────
@@ -305,16 +406,34 @@ function GlobeMap({ origin, destination, routes, activeRouteIdx, onReady }) {
 
     map.on("load", () => {
       map.setFog({
-        color:            "rgb(208, 236, 255)",
-        "high-color":     "rgb(166, 219, 255)",
-        "horizon-blend":  0.1,
-        "space-color":    "rgb(231, 245, 255)",
+        color:            "rgb(214, 218, 223)",
+        "high-color":     "rgb(198, 203, 209)",
+        "horizon-blend":  0.08,
+        "space-color":    "rgb(189, 193, 199)",
         "star-intensity": 0,
       });
-      try {
-        map.setPaintProperty("water", "fill-color", "#35B8FF");
-        map.setPaintProperty("water", "fill-opacity", 0.95);
-      } catch {}
+      const layers = map.getStyle()?.layers || [];
+      layers.forEach((layer) => {
+        try {
+          if (layer.id.includes("water")) {
+            if (layer.type === "fill") map.setPaintProperty(layer.id, "fill-color", "#001A66");
+            if (layer.type === "line") map.setPaintProperty(layer.id, "line-color", "#001A66");
+          }
+          if (
+            layer.type === "fill" &&
+            (layer.id.includes("land") || layer.id.includes("country") || layer["source-layer"]?.includes("land"))
+          ) {
+            map.setPaintProperty(layer.id, "fill-color", "#FFFFFF");
+          }
+          if (
+            layer.type === "line" &&
+            (layer.id.includes("country-boundary") || layer.id.includes("admin") || layer.id.includes("boundary"))
+          ) {
+            map.setPaintProperty(layer.id, "line-color", "#666666");
+            map.setPaintProperty(layer.id, "line-width", 1.1);
+          }
+        } catch {}
+      });
       mapRef.current = map;
       onReady?.();
     });
@@ -364,7 +483,7 @@ function GlobeMap({ origin, destination, routes, activeRouteIdx, onReady }) {
       // Draw each route
       routes.forEach((route, ri) => {
         const isActive  = ri === activeRouteIdx;
-        const lineCoords = buildLine(route.waypoints);
+        const lineCoords = offsetLineCoordinates(buildLine(route.waypoints), ri, routes.length);
         const srcId  = `rsrc-${ri}`;
         const glowId = `rglow-${ri}`;
         const lineId = `rline-${ri}`;
@@ -379,14 +498,20 @@ function GlobeMap({ origin, destination, routes, activeRouteIdx, onReady }) {
           "line-opacity": isActive ? 0.2 : 0.11,
           "line-blur":    6,
         }});
+        const casingId = `rcasing-${ri}`;
+        map.addLayer({ id: casingId, type: "line", source: srcId, paint: {
+          "line-color": "#111111",
+          "line-width": isActive ? 4.8 : 3.5,
+          "line-opacity": 0.55,
+        }});
         map.addLayer({ id: lineId, type: "line", source: srcId, paint: {
           "line-color":     route.color,
           "line-width":     isActive ? 3.4 : 2.3,
-          "line-opacity":   isActive ? 1 : 0.78,
+          "line-opacity":   isActive ? 1 : 0.9,
           "line-dasharray": route.dashArray,
         }});
         sourcesRef.current.push(srcId);
-        layersRef.current.push(glowId, lineId);
+        layersRef.current.push(glowId, lineId, casingId);
 
         // Hub markers for all routes (selected route is emphasized)
         route.hubLabels.forEach(hubLabel => {
@@ -476,7 +601,7 @@ export default function TerminalPage() {
     setRoutes([]);
     setCalculated(false);
     setTimeout(() => {
-      const r = buildRoutes(origin, destination, product);
+      const r = buildRoutes(origin, destination, product, qty, unit);
       setRoutes(r);
       setLoading(false);
       setCalculated(true);
