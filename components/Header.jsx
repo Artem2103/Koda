@@ -92,8 +92,8 @@ export default function Header() {
       top: 0, left: 0, right: 0,
       zIndex: 1000,
       background: scrolled
-        ? "rgba(255, 255, 255, 0.88)"
-        : "rgba(255, 255, 255, 0.65)",
+        ? "var(--header-bg-scrolled)"
+        : "var(--header-bg)",
       backdropFilter: "blur(20px) saturate(180%)",
       WebkitBackdropFilter: "blur(20px) saturate(180%)",
       borderBottom: scrolled ? "1px solid var(--border)" : "1px solid var(--glass-border)",
@@ -224,7 +224,7 @@ export default function Header() {
       {/* ── Department bar ── */}
       <div style={{
         borderTop: "1px solid var(--border)",
-        background: "rgba(255, 255, 255, 0.5)",
+        background: "var(--header-sub-bg)",
       }}>
         <div style={{
           maxWidth: 1200, margin: "0 auto", padding: "0 28px",
@@ -248,11 +248,11 @@ export default function Header() {
                   padding: "0 18px", height: 40,
                   borderRight: "1px solid var(--border)",
                   borderLeft: label === "Logistics" ? "1px solid var(--border)" : "none",
-                  background: active ? "rgba(0,0,0,0.04)" : "transparent",
+                  background: active ? "var(--header-active-bg)" : "transparent",
                   transition: "background 0.18s",
                   cursor: "pointer",
                 }}
-                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "rgba(0,0,0,0.02)"; }}
+                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--header-hover-bg)"; }}
                   onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
                 >
                   <DeptIcon dept={label} active={active} />

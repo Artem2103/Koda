@@ -3,6 +3,7 @@ import Head from "next/head";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import Header from "@/components/Header";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // ─── ROUTE COLORS ─────────────────────────────────────────────────────────────
 const ROUTE_COLORS = ["#005BFF", "#FF0000", "#00FF00"];
@@ -24,6 +25,45 @@ const PRODUCTS = [
 ];
 
 const UNITS = ["tonnes","kg","units","pallets","containers (20ft)","containers (40ft)","litres"];
+
+const THEMES = {
+  light: {
+    appBg: "#ffffff",
+    panelBg: "#ffffff",
+    panelBorder: "#d7dee7",
+    textPrimary: "#111111",
+    textSecondary: "#405160",
+    textMuted: "#5f6c78",
+    accent: "#007acc",
+    accentStrong: "#00D4FF",
+    surface: "#f9fbfd",
+    mapBackdrop: "#000000",
+    overlayBg: "rgba(255,255,255,0.92)",
+    overlayBorder: "#d7dee7",
+    overlayText: "#5d6771",
+    statusPositive: "#2f7a27",
+    routeCasing: "#111111",
+    shadow: "0 0 0 4px rgba(0,122,204,0.12)",
+  },
+  dark: {
+    appBg: "#05080e",
+    panelBg: "#0b111a",
+    panelBorder: "#1e2a3a",
+    textPrimary: "#e7eef8",
+    textSecondary: "#98a8bd",
+    textMuted: "#7d8ea6",
+    accent: "#4caeff",
+    accentStrong: "#00D4FF",
+    surface: "#111a26",
+    mapBackdrop: "#000000",
+    overlayBg: "rgba(6,10,16,0.86)",
+    overlayBorder: "#223146",
+    overlayText: "#9cb0c9",
+    statusPositive: "#7fe08d",
+    routeCasing: "#dce6f7",
+    shadow: "0 0 0 4px rgba(76,174,255,0.14)",
+  },
+};
 
 const COUNTRIES = [
   "Afghanistan","Albania","Algeria","Argentina","Australia","Austria","Bangladesh",
@@ -316,59 +356,17 @@ function arcSegment(p1, p2, steps = 60) {
 
 function buildLine(waypoints) {
   if (waypoints.length <= 2) return arcSegment(waypoints[0], waypoints[1], 90);
-
   const out = [];
   for (let i = 0; i < waypoints.length - 1; i++) {
-    const p0 = waypoints[Math.max(0, i - 1)];
-    const p1 = waypoints[i];
-    const p2 = waypoints[i + 1];
-    const p3 = waypoints[Math.min(waypoints.length - 1, i + 2)];
-    const steps = 42;
-
-    for (let j = 0; j <= steps; j++) {
-      const t = j / steps;
-      const t2 = t * t;
-      const t3 = t2 * t;
-      const lng = 0.5 * (
-        (2 * p1[0]) +
-        (-p0[0] + p2[0]) * t +
-        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
-        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3
-      );
-      const lat = 0.5 * (
-        (2 * p1[1]) +
-        (-p0[1] + p2[1]) * t +
-        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
-        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3
-      );
-      if (i > 0 && j === 0) continue;
-      out.push([lng, lat]);
-    }
+    const segment = arcSegment(waypoints[i], waypoints[i + 1], 72);
+    if (i > 0) segment.shift();
+    out.push(...segment);
   }
   return out;
 }
 
-function offsetLineCoordinates(coords, routeIndex, totalRoutes) {
-  if (!coords?.length || totalRoutes <= 1) return coords;
-  const center = (totalRoutes - 1) / 2;
-  const distance = (routeIndex - center) * 0.6;
-
-  return coords.map((point, idx) => {
-    if (idx === 0 || idx === coords.length - 1) return point;
-    const prev = coords[Math.max(0, idx - 1)];
-    const next = coords[Math.min(coords.length - 1, idx + 1)];
-    const dx = next[0] - prev[0];
-    const dy = next[1] - prev[1];
-    const len = Math.hypot(dx, dy) || 1;
-    const nx = -dy / len;
-    const ny = dx / len;
-    const taper = Math.sin((idx / (coords.length - 1)) * Math.PI);
-    return [point[0] + nx * distance * taper, point[1] + ny * distance * taper];
-  });
-}
-
 // ─── GLOBE COMPONENT ──────────────────────────────────────────────────────────
-function GlobeMap({ origin, destination, routes, activeRouteIdx, onReady }) {
+function GlobeMap({ origin, destination, routes, activeRouteIdx, onReady, isDark }) {
   const containerRef = useRef(null);
   const mapRef       = useRef(null);
   const layersRef    = useRef([]);
@@ -483,7 +481,7 @@ function GlobeMap({ origin, destination, routes, activeRouteIdx, onReady }) {
       // Draw each route
       routes.forEach((route, ri) => {
         const isActive  = ri === activeRouteIdx;
-        const lineCoords = offsetLineCoordinates(buildLine(route.waypoints), ri, routes.length);
+        const lineCoords = buildLine(route.waypoints);
         const srcId  = `rsrc-${ri}`;
         const glowId = `rglow-${ri}`;
         const lineId = `rline-${ri}`;
@@ -500,7 +498,7 @@ function GlobeMap({ origin, destination, routes, activeRouteIdx, onReady }) {
         }});
         const casingId = `rcasing-${ri}`;
         map.addLayer({ id: casingId, type: "line", source: srcId, paint: {
-          "line-color": "#111111",
+          "line-color": isDark ? "#dce6f7" : "#111111",
           "line-width": isActive ? 4.8 : 3.5,
           "line-opacity": 0.55,
         }});
@@ -556,7 +554,7 @@ function GlobeMap({ origin, destination, routes, activeRouteIdx, onReady }) {
     } else {
       map.once("load", draw);
     }
-  }, [routes, origin, destination, activeRouteIdx, clearAll]);
+  }, [routes, origin, destination, activeRouteIdx, clearAll, isDark]);
 
   return <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />;
 }
@@ -574,6 +572,8 @@ export default function TerminalPage() {
   const [calculated,  setCalculated]  = useState(false);
   const [mapReady,    setMapReady]    = useState(false);
   const [activeRoute, setActiveRoute] = useState(0);
+  const { isDark } = useTheme();
+  const palette = isDark ? THEMES.dark : THEMES.light;
 
   const [time, setTime] = useState("");
   useEffect(() => {
@@ -620,21 +620,24 @@ export default function TerminalPage() {
         paddingTop: 96,
         display: "grid",
         gridTemplateColumns: "360px 1fr 340px",
-        background: "#ffffff",
+        background: palette.appBg,
         overflow: "auto",
+        fontSize: 14,
+        color: palette.textPrimary,
+        transition: "background-color 220ms ease,color 180ms ease",
       }}>
 
         {/* ══ LEFT: INPUT ══ */}
-        <aside style={{ borderRight: "1px solid #d7dee7", display: "flex", flexDirection: "column", background: "#ffffff", overflow: "hidden" }}>
+        <aside style={{ borderRight: `1px solid ${palette.panelBorder}`, display: "flex", flexDirection: "column", background: palette.panelBg, overflow: "hidden", transition: "background-color 220ms ease,border-color 220ms ease" }}>
           <PanelHeader label="SHIPMENT DETAILS" right={
-              <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: mapReady ? "#2f7a27" : "#6f7a85", letterSpacing: "0.08em" }}>
+              <span style={{ fontFamily: "var(--font-body)", fontSize: 10, color: mapReady ? palette.statusPositive : palette.textMuted, letterSpacing: "0.08em" }}>
                 {mapReady ? "● LIVE" : "○ INIT"}
               </span>
-          } />
+          } palette={palette} />
 
           <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 36px" }}>
 
-            <FieldLabel>WHAT ARE YOU SHIPPING?</FieldLabel>
+            <FieldLabel palette={palette}>WHAT ARE YOU SHIPPING?</FieldLabel>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 22 }}>
               {PRODUCTS.map(p => (
                 <ProductBtn
@@ -642,26 +645,27 @@ export default function TerminalPage() {
                   p={p}
                   active={product === p.id}
                   onClick={() => setProduct(product === p.id ? null : p.id)}
+                  palette={palette}
                 />
               ))}
             </div>
 
-            <FieldLabel>QUANTITY</FieldLabel>
+            <FieldLabel palette={palette}>QUANTITY</FieldLabel>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 22 }}>
-              <TermInput type="number" placeholder="e.g. 25" value={qty} onChange={e => setQty(e.target.value)} />
-              <TermSelect value={unit} onChange={e => setUnit(e.target.value)}>
+              <TermInput type="number" placeholder="e.g. 25" value={qty} onChange={e => setQty(e.target.value)} palette={palette} />
+              <TermSelect value={unit} onChange={e => setUnit(e.target.value)} palette={palette}>
                 {UNITS.map(u => <option key={u}>{u}</option>)}
               </TermSelect>
             </div>
 
-            <FieldLabel>ORIGIN COUNTRY</FieldLabel>
-            <TermSelect value={origin} onChange={e => setOrigin(e.target.value)} style={{ marginBottom: 16 }}>
+            <FieldLabel palette={palette}>ORIGIN COUNTRY</FieldLabel>
+            <TermSelect value={origin} onChange={e => setOrigin(e.target.value)} style={{ marginBottom: 16 }} palette={palette}>
               <option value="">Select origin…</option>
               {COUNTRIES.map(c => <option key={c}>{c}</option>)}
             </TermSelect>
 
-            <FieldLabel>DESTINATION COUNTRY</FieldLabel>
-            <TermSelect value={destination} onChange={e => setDestination(e.target.value)} style={{ marginBottom: 28 }}>
+            <FieldLabel palette={palette}>DESTINATION COUNTRY</FieldLabel>
+            <TermSelect value={destination} onChange={e => setDestination(e.target.value)} style={{ marginBottom: 28 }} palette={palette}>
               <option value="">Select destination…</option>
               {COUNTRIES.map(c => <option key={c}>{c}</option>)}
             </TermSelect>
@@ -680,9 +684,9 @@ export default function TerminalPage() {
               style={{
                 width: "100%",
                 padding: "14px",
-                background: canCalc && !loading ? "#00D4FF" : "rgba(0,212,255,0.05)",
+                background: canCalc && !loading ? palette.accentStrong : (isDark ? "rgba(0,212,255,0.13)" : "rgba(0,212,255,0.05)"),
                 color: canCalc && !loading ? "#000" : "#1a3a4a",
-                border: `1px solid ${canCalc && !loading ? "#00D4FF" : "#1a2a3a"}`,
+                border: `1px solid ${canCalc && !loading ? palette.accentStrong : palette.panelBorder}`,
                 borderRadius: 3,
                 cursor: canCalc && !loading ? "pointer" : "not-allowed",
                 fontFamily: "var(--font-display)",
@@ -696,8 +700,8 @@ export default function TerminalPage() {
               {loading ? "COMPUTING…" : "CALCULATE ROUTES →"}
             </button>
 
-            <div style={{ marginTop: 30, paddingTop: 22, borderTop: "1px solid #d7dee7" }}>
-              <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#64707a", letterSpacing: "0.1em", marginBottom: 16 }}>
+            <div style={{ marginTop: 30, paddingTop: 22, borderTop: `1px solid ${palette.panelBorder}` }}>
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: palette.textMuted, letterSpacing: "0.1em", marginBottom: 16 }}>
                 HOW THIS WORKS
               </div>
               {[
@@ -707,10 +711,10 @@ export default function TerminalPage() {
                 ["04", "Review ranked options",    "Routes scored by cost, speed, and compliance burden."],
               ].map(([n, t, d]) => (
                 <div key={n} style={{ display: "flex", gap: 14, marginBottom: 16 }}>
-                  <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "#5d6670", fontWeight: 700, flexShrink: 0, paddingTop: 1 }}>{n}</span>
+                  <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: palette.textMuted, fontWeight: 700, flexShrink: 0, paddingTop: 1 }}>{n}</span>
                   <div>
-                    <div style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#1f2a35", fontWeight: 600, marginBottom: 3 }}>{t}</div>
-                    <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#46515c", lineHeight: 1.6 }}>{d}</div>
+                    <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: palette.textPrimary, fontWeight: 600, marginBottom: 3 }}>{t}</div>
+                    <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: palette.textSecondary, lineHeight: 1.6 }}>{d}</div>
                   </div>
                 </div>
               ))}
@@ -719,26 +723,27 @@ export default function TerminalPage() {
         </aside>
 
         {/* ══ CENTER: GLOBE ══ */}
-        <main style={{ position: "relative", overflow: "hidden" }}>
+        <main style={{ position: "relative", overflow: "hidden", background: palette.mapBackdrop }}>
           <GlobeMap
             origin={origin}
             destination={destination}
             routes={routes}
             activeRouteIdx={activeRoute}
             onReady={() => setMapReady(true)}
+            isDark={isDark}
           />
 
           {/* Top-left HUD */}
           <div style={{
             position: "absolute", top: 16, left: 16,
-            background: "rgba(255,255,255,0.92)", border: "1px solid #d7dee7",
+            background: palette.overlayBg, border: `1px solid ${palette.overlayBorder}`,
             borderRadius: 3, padding: "10px 16px", pointerEvents: "none",
             backdropFilter: "blur(8px)",
           }}>
-            <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "#5d6771", letterSpacing: "0.12em", marginBottom: 4 }}>
+            <div style={{ fontFamily: "var(--font-body)", fontSize: 10, color: palette.overlayText, letterSpacing: "0.12em", marginBottom: 4 }}>
               MERIDIAN · ROUTE TERMINAL
             </div>
-            <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "#007acc", letterSpacing: "0.04em" }}>
+            <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: palette.accent, letterSpacing: "0.04em" }}>
               {time}
             </div>
           </div>
@@ -747,7 +752,7 @@ export default function TerminalPage() {
           {calculated && (
             <div style={{
               position: "absolute", top: 16, right: 16,
-              background: "rgba(255,255,255,0.92)", border: "1px solid #d7dee7",
+              background: palette.overlayBg, border: `1px solid ${palette.overlayBorder}`,
               borderRadius: 3, padding: "10px 14px", backdropFilter: "blur(8px)",
             }}>
               {routes.map((r, i) => (
@@ -759,7 +764,7 @@ export default function TerminalPage() {
                     marginBottom: i < routes.length - 1 ? 8 : 0,
                     cursor: "pointer",
                     opacity: activeRoute === i ? 1 : 0.75,
-                    transition: "opacity 0.15s",
+                    transition: "opacity 0.15s,color 150ms ease",
                   }}
                 >
                   <div style={{ width: 18, height: 2, background: r.color, borderRadius: 1, flexShrink: 0 }} />
@@ -774,7 +779,7 @@ export default function TerminalPage() {
           {/* Bottom status bar */}
           <div style={{
             position: "absolute", bottom: 0, left: 0, right: 0,
-            background: "rgba(255,255,255,0.94)", borderTop: "1px solid #d7dee7",
+            background: palette.overlayBg, borderTop: `1px solid ${palette.overlayBorder}`,
             padding: "9px 20px", display: "flex", alignItems: "center", gap: 28,
             pointerEvents: "none", backdropFilter: "blur(8px)",
           }}>
@@ -785,8 +790,8 @@ export default function TerminalPage() {
               { k: "PORTS",     v: "3,200+" },
             ].map(({ k, v }) => (
               <div key={k} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ fontFamily: "var(--font-body)", fontSize: 10, color: "#5f6c78", letterSpacing: "0.1em" }}>{k}</span>
-                <span style={{ fontFamily: "var(--font-body)", fontSize: 10, color: "#007acc", letterSpacing: "0.06em" }}>{v}</span>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 10, color: palette.textMuted, letterSpacing: "0.1em" }}>{k}</span>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: 10, color: palette.accent, letterSpacing: "0.06em" }}>{v}</span>
               </div>
             ))}
           </div>
@@ -795,7 +800,7 @@ export default function TerminalPage() {
           {loading && (
             <div style={{
               position: "absolute", inset: 0,
-              background: "rgba(255,255,255,0.62)",
+              background: isDark ? "rgba(2,6,12,0.62)" : "rgba(255,255,255,0.62)",
               display: "flex", flexDirection: "column",
               alignItems: "center", justifyContent: "center", gap: 16,
             }}>
@@ -815,16 +820,16 @@ export default function TerminalPage() {
         </main>
 
         {/* ══ RIGHT: RESULTS ══ */}
-        <aside style={{ borderLeft: "1px solid #d7dee7", display: "flex", flexDirection: "column", background: "#ffffff", overflow: "hidden" }}>
+        <aside style={{ borderLeft: `1px solid ${palette.panelBorder}`, display: "flex", flexDirection: "column", background: palette.panelBg, overflow: "hidden", transition: "background-color 220ms ease,border-color 220ms ease" }}>
           <PanelHeader label="ROUTE INTELLIGENCE" right={
             calculated
-              ? <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "#2f7a27", letterSpacing: "0.08em" }}>{routes.length} ROUTES</span>
+              ? <span style={{ fontFamily: "var(--font-body)", fontSize: 10, color: palette.statusPositive, letterSpacing: "0.08em" }}>{routes.length} ROUTES</span>
               : null
-          } />
+          } palette={palette} />
 
           <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-            {!calculated && !loading && <EmptyState />}
-            {loading && <SkeletonCards />}
+            {!calculated && !loading && <EmptyState palette={palette} />}
+            {loading && <SkeletonCards palette={palette} />}
             {calculated && routes.map((r, i) => (
               <RouteCard
                 key={i}
@@ -832,6 +837,7 @@ export default function TerminalPage() {
                 idx={i}
                 active={activeRoute === i}
                 onClick={() => setActiveRoute(i)}
+                palette={palette}
               />
             ))}
             {calculated && (
@@ -842,6 +848,7 @@ export default function TerminalPage() {
                 origin={origin}
                 destination={destination}
                 routes={routes}
+                palette={palette}
               />
             )}
           </div>
@@ -855,8 +862,8 @@ export default function TerminalPage() {
         }
         ::-webkit-scrollbar { width:2px; }
         ::-webkit-scrollbar-track { background:transparent; }
-        ::-webkit-scrollbar-thumb { background:#c4ced8; border-radius:2px; }
-        select option { background:#ffffff; color:#111111; }
+        ::-webkit-scrollbar-thumb { background:${isDark ? "#31445d" : "#c4ced8"}; border-radius:2px; }
+        select option { background:${isDark ? "#0b111a" : "#ffffff"}; color:${isDark ? "#e7eef8" : "#111111"}; }
         .mapboxgl-popup-content {
           background:transparent !important;
           box-shadow:none !important;
@@ -864,12 +871,12 @@ export default function TerminalPage() {
         }
         .mapboxgl-popup-tip { display:none !important; }
         .mapboxgl-ctrl-group {
-          background:rgba(255,255,255,0.95) !important;
-          border:1px solid #d7dee7 !important;
+          background:${palette.overlayBg} !important;
+          border:1px solid ${palette.overlayBorder} !important;
           border-radius:3px !important;
         }
         .mapboxgl-ctrl-group button { background:transparent !important; }
-        .mapboxgl-ctrl-icon { filter:invert(0.15) !important; }
+        .mapboxgl-ctrl-icon { filter:${isDark ? "invert(0.85)" : "invert(0.15)"} !important; }
         .mapboxgl-ctrl-attrib { display:none !important; }
       `}</style>
     </>
@@ -878,15 +885,15 @@ export default function TerminalPage() {
 
 // ─── UI COMPONENTS ────────────────────────────────────────────────────────────
 
-function PanelHeader({ label, right }) {
+function PanelHeader({ label, right, palette }) {
   return (
     <div style={{
       padding: "12px 20px",
-      borderBottom: "1px solid #d7dee7",
+      borderBottom: `1px solid ${palette.panelBorder}`,
       display: "flex", alignItems: "center", justifyContent: "space-between",
       flexShrink: 0,
     }}>
-      <span style={{ fontFamily: "var(--font-body)", fontSize: 12, letterSpacing: "0.12em", color: "#0f1720", textTransform: "uppercase", fontWeight: 700 }}>
+      <span style={{ fontFamily: "var(--font-body)", fontSize: 11, letterSpacing: "0.12em", color: palette.textPrimary, textTransform: "uppercase", fontWeight: 700 }}>
         ◆ {label}
       </span>
       {right}
@@ -894,21 +901,21 @@ function PanelHeader({ label, right }) {
   );
 }
 
-function FieldLabel({ children }) {
+function FieldLabel({ children, palette }) {
   return (
-    <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#405160", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>
+    <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: palette.textSecondary, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>
       {children}
     </div>
   );
 }
 
-function ProductBtn({ p, active, onClick }) {
+function ProductBtn({ p, active, onClick, palette }) {
   return (
     <button
       onClick={onClick}
       style={{
-        background: active ? "rgba(0,122,204,0.10)" : "#ffffff",
-        border: `1px solid ${active ? "#007acc" : "#d7dee7"}`,
+        background: active ? `rgba(${hexRgb(palette.accent)},0.16)` : palette.panelBg,
+        border: `1px solid ${active ? palette.accent : palette.panelBorder}`,
         borderRadius: 3,
         padding: "10px 10px",
         cursor: "pointer",
@@ -920,14 +927,14 @@ function ProductBtn({ p, active, onClick }) {
       }}
     >
       <span style={{ fontSize: 16, lineHeight: 1 }}>{p.emoji}</span>
-      <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: active ? "#007acc" : "#2a3540", letterSpacing: "0.02em", lineHeight: 1.35 }}>
+      <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: active ? palette.accent : palette.textPrimary, letterSpacing: "0.02em", lineHeight: 1.35 }}>
         {p.label}
       </span>
     </button>
   );
 }
 
-function TermInput({ style, onFocus, onBlur, ...props }) {
+function TermInput({ style, onFocus, onBlur, palette, ...props }) {
   const [focused, setFocused] = useState(false);
   return (
     <input
@@ -935,13 +942,13 @@ function TermInput({ style, onFocus, onBlur, ...props }) {
       onFocus={e => { setFocused(true); onFocus?.(e); }}
       onBlur={e => { setFocused(false); onBlur?.(e); }}
       style={{
-        background: "#ffffff",
-        border: `1px solid ${focused ? "#007acc" : "#d7dee7"}`,
+        background: palette.panelBg,
+        border: `1px solid ${focused ? palette.accent : palette.panelBorder}`,
         borderRadius: 3,
         padding: "11px 12px",
-        color: "#111",
+        color: palette.textPrimary,
         fontFamily: "var(--font-body)",
-        fontSize: 16,
+        fontSize: 14,
         width: "100%",
         outline: "none",
         transition: "border-color 0.15s",
@@ -951,18 +958,18 @@ function TermInput({ style, onFocus, onBlur, ...props }) {
   );
 }
 
-function TermSelect({ children, style, ...props }) {
+function TermSelect({ children, style, palette, ...props }) {
   return (
     <select
       {...props}
       style={{
-        background: "#ffffff",
-        border: "1px solid #d7dee7",
+        background: palette.panelBg,
+        border: `1px solid ${palette.panelBorder}`,
         borderRadius: 3,
         padding: "11px 28px 11px 12px",
-        color: "#111",
+        color: palette.textPrimary,
         fontFamily: "var(--font-body)",
-        fontSize: 16,
+        fontSize: 14,
         width: "100%",
         outline: "none",
         cursor: "pointer",
@@ -978,15 +985,15 @@ function TermSelect({ children, style, ...props }) {
   );
 }
 
-function RouteCard({ route, idx, active, onClick }) {
+function RouteCard({ route, idx, active, onClick, palette }) {
   const scoreColor = route.score >= 90 ? "#A8FF3E" : route.score >= 80 ? "#FFD700" : "#FF6B35";
   return (
     <div
       onClick={onClick}
       style={{
-        background: active ? `rgba(${hexRgb(route.color)},0.08)` : "#ffffff",
-        border: `1px solid ${active ? route.color + "88" : "#d7dee7"}`,
-        borderLeft: `3px solid ${active ? route.color : idx === 0 ? route.color + "88" : "#d7dee7"}`,
+        background: active ? `rgba(${hexRgb(route.color)},0.08)` : palette.panelBg,
+        border: `1px solid ${active ? route.color + "88" : palette.panelBorder}`,
+        borderLeft: `3px solid ${active ? route.color : idx === 0 ? route.color + "88" : palette.panelBorder}`,
         borderRadius: 3,
         padding: "14px",
         marginBottom: 10,
@@ -1016,7 +1023,7 @@ function RouteCard({ route, idx, active, onClick }) {
       </div>
 
       {/* Score bar */}
-      <div style={{ height: 3, background: "#e8edf2", borderRadius: 2, marginBottom: 10 }}>
+      <div style={{ height: 3, background: palette.surface, borderRadius: 2, marginBottom: 10 }}>
         <div style={{ width: `${route.score}%`, height: "100%", background: route.color, borderRadius: 1 }} />
       </div>
 
@@ -1027,9 +1034,9 @@ function RouteCard({ route, idx, active, onClick }) {
           { k: "TRANSIT",  v: `${route.days}d` },
           { k: "DIST",     v: `${Math.round(route.distance / 100) / 10}k km` },
         ].map(({ k, v }) => (
-          <div key={k} style={{ background: "#f9fbfd", padding: "7px 8px", borderRadius: 2, border: "1px solid #e8edf2" }}>
-            <div style={{ fontFamily: "var(--font-body)", fontSize: 9, color: "#536272", letterSpacing: "0.08em", marginBottom: 3 }}>{k}</div>
-            <div style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "#111", fontWeight: 700 }}>{v}</div>
+          <div key={k} style={{ background: palette.surface, padding: "7px 8px", borderRadius: 2, border: `1px solid ${palette.panelBorder}` }}>
+            <div style={{ fontFamily: "var(--font-body)", fontSize: 9, color: palette.textMuted, letterSpacing: "0.08em", marginBottom: 3 }}>{k}</div>
+            <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: palette.textPrimary, fontWeight: 700 }}>{v}</div>
           </div>
         ))}
       </div>
@@ -1037,8 +1044,8 @@ function RouteCard({ route, idx, active, onClick }) {
       {/* Via hubs */}
       {route.hubLabels.length > 0 && (
         <div style={{ marginBottom: 8 }}>
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 10, color: "#536272", letterSpacing: "0.08em" }}>VIA  </span>
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#1f2b36" }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 10, color: palette.textMuted, letterSpacing: "0.08em" }}>VIA  </span>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: palette.textPrimary }}>
             {route.hubLabels.join(" → ")}
           </span>
         </div>
@@ -1068,38 +1075,38 @@ function Tag({ color, children }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ palette }) {
   return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center",
       justifyContent: "center", minHeight: 260, gap: 16, padding: "32px",
     }}>
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        <circle cx="24" cy="24" r="23" stroke="#1a2a3a" strokeWidth="1"/>
-        <ellipse cx="24" cy="24" rx="10" ry="23" stroke="#1a2a3a" strokeWidth="0.8"/>
-        <line x1="1" y1="24" x2="47" y2="24" stroke="#1a2a3a" strokeWidth="0.8"/>
-        <circle cx="24" cy="24" r="3" stroke="#2a4050" strokeWidth="1"/>
+        <circle cx="24" cy="24" r="23" stroke={palette.textSecondary} strokeWidth="1"/>
+        <ellipse cx="24" cy="24" rx="10" ry="23" stroke={palette.textSecondary} strokeWidth="0.8"/>
+        <line x1="1" y1="24" x2="47" y2="24" stroke={palette.textSecondary} strokeWidth="0.8"/>
+        <circle cx="24" cy="24" r="3" stroke={palette.textMuted} strokeWidth="1"/>
       </svg>
-      <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#536272", letterSpacing: "0.08em", textAlign: "center", lineHeight: 2.1 }}>
+      <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: palette.textMuted, letterSpacing: "0.08em", textAlign: "center", lineHeight: 2.1 }}>
         SELECT CARGO TYPE<br />SET ORIGIN & DESTINATION<br />RUN ROUTE ANALYSIS
       </div>
     </div>
   );
 }
 
-function SkeletonCards() {
+function SkeletonCards({ palette }) {
   return (
     <div>
       {[1, 0.7, 0.4].map((opacity, i) => (
         <div key={i} style={{
-          border: "1px solid #d7dee7", borderRadius: 3,
+          border: `1px solid ${palette.panelBorder}`, borderRadius: 3,
           padding: "16px", marginBottom: 10, opacity,
         }}>
-          <div style={{ width: "60%", height: 8, background: "#d7dee7", borderRadius: 2, marginBottom: 10 }} />
-          <div style={{ height: 2, background: "#e8edf2", marginBottom: 10 }} />
+          <div style={{ width: "60%", height: 8, background: palette.panelBorder, borderRadius: 2, marginBottom: 10 }} />
+          <div style={{ height: 2, background: palette.surface, marginBottom: 10 }} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
             {[0,1,2].map(j => (
-              <div key={j} style={{ height: 38, background: "#f1f5f9", borderRadius: 2 }} />
+              <div key={j} style={{ height: 38, background: palette.surface, borderRadius: 2 }} />
             ))}
           </div>
         </div>
@@ -1108,15 +1115,15 @@ function SkeletonCards() {
   );
 }
 
-function SummaryPanel({ product, qty, unit, origin, destination, routes }) {
+function SummaryPanel({ product, qty, unit, origin, destination, routes, palette }) {
   const prod = PRODUCTS.find(p => p.id === product);
   return (
     <div style={{
       marginTop: 8, padding: "14px",
-      background: "rgba(53,184,255,0.07)",
-      border: "1px solid #d7dee7", borderRadius: 3,
+      background: `rgba(${hexRgb(palette.accent)},0.08)`,
+      border: `1px solid ${palette.panelBorder}`, borderRadius: 3,
     }}>
-      <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#536272", letterSpacing: "0.08em", marginBottom: 12 }}>
+      <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: palette.textMuted, letterSpacing: "0.08em", marginBottom: 12 }}>
         CORRIDOR SUMMARY
       </div>
       {[
@@ -1129,8 +1136,8 @@ function SummaryPanel({ product, qty, unit, origin, destination, routes }) {
         ["EST. COST",    routes[0]?.cost],
       ].map(([k, v]) => (
         <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 7, gap: 12 }}>
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#405160", letterSpacing: "0.06em", flexShrink: 0 }}>{k}</span>
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "#111", textAlign: "right", fontWeight: 500 }}>{v}</span>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: palette.textSecondary, letterSpacing: "0.06em", flexShrink: 0 }}>{k}</span>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: palette.textPrimary, textAlign: "right", fontWeight: 500 }}>{v}</span>
         </div>
       ))}
     </div>

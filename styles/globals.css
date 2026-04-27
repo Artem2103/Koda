@@ -48,6 +48,39 @@
   --shadow-sm:    0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
   --shadow-md:    0 4px 20px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05);
   --shadow-lg:    0 12px 48px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06);
+
+  --header-bg: rgba(255, 255, 255, 0.65);
+  --header-bg-scrolled: rgba(255, 255, 255, 0.88);
+  --header-sub-bg: rgba(255, 255, 255, 0.5);
+  --header-active-bg: rgba(0, 0, 0, 0.04);
+  --header-hover-bg: rgba(0, 0, 0, 0.02);
+}
+
+:root[data-theme="dark"] {
+  --bg: #05080e;
+  --bg-1: #0b111a;
+  --bg-2: #111a26;
+  --bg-3: #1a2638;
+
+  --border: #223146;
+  --border-hi: #3f5b7d;
+
+  --text: #e7eef8;
+  --text-2: #b2c0d3;
+  --text-3: #8fa0b8;
+  --text-4: #6d7f99;
+
+  --glass-bg: rgba(6, 10, 16, 0.72);
+  --glass-border: rgba(75, 97, 126, 0.38);
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.3), 0 0 0 1px rgba(64,84,110,0.3);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(64,84,110,0.35);
+  --shadow-lg: 0 12px 48px rgba(0,0,0,0.45), 0 0 0 1px rgba(64,84,110,0.35);
+
+  --header-bg: rgba(6, 10, 16, 0.65);
+  --header-bg-scrolled: rgba(6, 10, 16, 0.88);
+  --header-sub-bg: rgba(6, 10, 16, 0.62);
+  --header-active-bg: rgba(255, 255, 255, 0.08);
+  --header-hover-bg: rgba(255, 255, 255, 0.05);
 }
 
 /* ─── BASE ───────────────────────────────────────────────────────────────────── */
@@ -61,12 +94,17 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  transition: background-color 220ms ease, color 220ms ease;
 }
 
 ::selection { background: var(--text); color: var(--bg); }
 ::-webkit-scrollbar        { width: 2px; }
 ::-webkit-scrollbar-track  { background: var(--bg); }
 ::-webkit-scrollbar-thumb  { background: var(--border-hi); }
+
+a, button, input, select, textarea, div, span, section, article, main, aside, nav, header, footer {
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
 
 /* ─── TYPOGRAPHY ─────────────────────────────────────────────────────────────── */
 /* Both .t-* and .text-* aliases for compatibility */
