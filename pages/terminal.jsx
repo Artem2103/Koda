@@ -21,7 +21,7 @@ const PRODUCTS = [
   { id: "arms",            label: "Arms & Defence",       emoji: "🛡️"  },
   { id: "vehicles",        label: "Vehicles & Parts",     emoji: "🚗" },
   { id: "livestock",       label: "Livestock",            emoji: "🐄" },
-  { id: "timber",          label: "Timber & Wood",        emoji: "🪵" },
+  { id: "timber",          label: "Timber & Wood",        emoji: "🌲" },
   { id: "minerals",        label: "Minerals & Materials", emoji: "⛏️"  },
 ];
 
