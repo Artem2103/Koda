@@ -4,11 +4,26 @@ import { translations } from "@/lib/translations";
 const LanguageContext = createContext();
 
 export function LanguageProvider({ children }) {
-  const [lang, setLang] = useState("en");
+  const [lang, setLangState] = useState("en");
   const textNodesRef = useRef(new WeakMap());
   const attrNodesRef = useRef(new WeakMap());
 
-  const toggleLang = () => setLang((l) => (l === "en" ? "ru" : "en"));
+  const setLang = (nextLang) => {
+    setLangState(nextLang);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("koda-language-manual", "1");
+    }
+  };
+
+  const toggleLang = () => {
+    setLangState((currentLang) => {
+      const nextLang = currentLang === "en" ? "ru" : "en";
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("koda-language-manual", "1");
+      }
+      return nextLang;
+    });
+  };
 
   const ruTextMap = useMemo(() => {
     const pairs = new Map();
@@ -34,6 +49,12 @@ export function LanguageProvider({ children }) {
   const extraRuPhrases = useMemo(
     () =>
       new Map([
+        ["Trusted by next-generation logistics teams.", "Нам доверяют логистические команды нового поколения."],
+        ["Navigate Global Trade", "Управляйте мировой торговлей"],
+        ["With Precision", "с точностью"],
+        ["AI-powered insights, route optimization, and real-time risk intelligence — built to keep your operations ahead of disruption.", "ИИ-аналитика, оптимизация маршрутов и оценка рисков в реальном времени — чтобы ваши операции всегда были на шаг впереди сбоев."],
+        ["Get Started for Free", "Начать бесплатно"],
+        ["Explore Features", "Изучить возможности"],
         ["One query.", "Один запрос."],
         ["Every answer.", "Все ответы."],
         ["Enter origin, destination, commodity, and volume.", "Введите отправление, назначение, товар и объём."],
@@ -45,6 +66,22 @@ export function LanguageProvider({ children }) {
         ["Risk & Compliance", "Риски и соответствие"],
         ["Learn more", "Узнать больше"],
         ["RANKED ROUTES", "МАРШРУТЫ ПО РЕЙТИНГУ"],
+        ["SUGGESTED ROUTES", "РЕКОМЕНДУЕМЫЕ МАРШРУТЫ"],
+        ["Fresh produce · 20ft container", "Свежая продукция · контейнер 20 футов"],
+        ["days", "дней"],
+        ["Score", "Оценка"],
+        ["Computed in 1.4s · 3 routes scored", "Рассчитано за 1.4 с · оценено 3 маршрута"],
+        ["LIVE", "LIVE"],
+        ["intelligence-feed · live", "лента-аналитики · live"],
+        ["STREAMING", "ПОТОК"],
+        ["signals processed today across 2,400+ corridors", "сигналов обработано сегодня по 2 400+ коридорам"],
+        ["Live Intelligence", "Живая аналитика"],
+        ["Signals before", "Сигналы до того,"],
+        ["they become", "как они станут"],
+        ["problems.", "проблемами."],
+        ["Our AI monitors 180 countries around the clock — sanctions updates, port disruptions,", "Наш ИИ круглосуточно отслеживает 180 стран — обновления санкций, сбои в портах,"],
+        ["new trade agreements, weather risks — and scores their impact on your specific corridors.", "новые торговые соглашения, погодные риски — и оценивает их влияние на ваши конкретные коридоры."],
+        ["See Securities module →", "Смотреть модуль безопасности →"],
         ["Global Trade Intelligence Platform", "Платформа аналитики мировой торговли"],
         ["Start free trial", "Начать бесплатно"],
         ["See how it works", "Смотреть как это работает"],
@@ -107,8 +144,14 @@ export function LanguageProvider({ children }) {
   );
 
   useEffect(() => {
+    const hasManualPreference = window.localStorage.getItem("koda-language-manual") === "1";
     const storedLang = window.localStorage.getItem("koda-language");
-    if (storedLang === "ru" || storedLang === "en") setLang(storedLang);
+    if (hasManualPreference && (storedLang === "ru" || storedLang === "en")) {
+      setLangState(storedLang);
+      return;
+    }
+    setLangState("en");
+    window.localStorage.setItem("koda-language", "en");
   }, []);
 
   useEffect(() => {
@@ -116,6 +159,21 @@ export function LanguageProvider({ children }) {
   }, [lang]);
 
   useEffect(() => {
+    const replaceByMap = (value, mapEntries) => {
+      let nextValue = value;
+      for (const [enValue, ruValue] of mapEntries) {
+        if (nextValue.includes(enValue)) {
+          nextValue = nextValue.split(enValue).join(ruValue);
+        }
+      }
+      return nextValue;
+    };
+
+    const replacementEntries = [
+      ...Array.from(ruTextMap.entries()),
+      ...Array.from(extraRuPhrases.entries()),
+    ].sort((a, b) => b[0].length - a[0].length);
+
     const translateText = (text) => {
       const start = text.match(/^\s*/)?.[0] ?? "";
       const end = text.match(/\s*$/)?.[0] ?? "";
@@ -125,11 +183,7 @@ export function LanguageProvider({ children }) {
       if (lang === "ru") {
         translatedCore = ruTextMap.get(core) ?? core;
         if (translatedCore === core) {
-          extraRuPhrases.forEach((ruValue, enValue) => {
-            if (translatedCore.includes(enValue)) {
-              translatedCore = translatedCore.split(enValue).join(ruValue);
-            }
-          });
+          translatedCore = replaceByMap(translatedCore, replacementEntries);
         }
       }
       return `${start}${translatedCore}${end}`;
