@@ -435,10 +435,10 @@ function GlobeMap({ origin, destination, routes, activeRouteIdx, onReady, isDark
 
     map.on("load", () => {
       map.setFog({
-        color:            "rgb(214, 218, 223)",
-        "high-color":     "rgb(198, 203, 209)",
-        "horizon-blend":  0.08,
-        "space-color":    "rgb(189, 193, 199)",
+        color:            "rgb(24, 24, 24)",
+        "high-color":     "rgb(12, 12, 12)",
+        "horizon-blend":  0.03,
+        "space-color":    "#000000",
         "star-intensity": 0,
       });
       const layers = map.getStyle()?.layers || [];
@@ -452,14 +452,29 @@ function GlobeMap({ origin, destination, routes, activeRouteIdx, onReady, isDark
             layer.type === "fill" &&
             (layer.id.includes("land") || layer.id.includes("country") || layer["source-layer"]?.includes("land"))
           ) {
-            map.setPaintProperty(layer.id, "fill-color", "#FFFFFF");
+            map.setPaintProperty(layer.id, "fill-color", "#1DB954");
           }
           if (
             layer.type === "line" &&
             (layer.id.includes("country-boundary") || layer.id.includes("admin") || layer.id.includes("boundary"))
           ) {
-            map.setPaintProperty(layer.id, "line-color", "#666666");
+            map.setPaintProperty(layer.id, "line-color", "#0D5C2C");
             map.setPaintProperty(layer.id, "line-width", 1.1);
+          }
+          if (
+            layer.type === "symbol" &&
+            layer.layout?.["text-field"] &&
+            (layer.id.includes("country") || layer.id.includes("place") || layer.id.includes("settlement") || layer.id.includes("state"))
+          ) {
+            map.setPaintProperty(layer.id, "text-color", "#FFFFFF");
+            map.setPaintProperty(layer.id, "text-halo-color", "rgba(0,0,0,0.85)");
+            map.setPaintProperty(layer.id, "text-halo-width", 0.8);
+            map.setPaintProperty(layer.id, "text-opacity", [
+              "interpolate", ["linear"], ["zoom"],
+              0, 0,
+              2.4, 0,
+              3.1, 1
+            ]);
           }
         } catch {}
       });
