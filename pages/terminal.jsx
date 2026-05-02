@@ -47,12 +47,12 @@ function toTerminalRoutes(apiRoutes = []) {
       waypointNodes: route.waypoints || [],
       hubLabels,
       distance: route.distanceKm,
-      days: route.days?.[0] ?? 0,
-      cost: `$${Number(route.estimatedCostUSD || 0).toLocaleString()}`,
-      score: Math.round(route.score || 0),
-      note: route.riskBand ? `Risk: ${route.riskBand}` : "",
-      warnings: route.warnings || [],
-      requirements: route.requirements || [],
+      days: route.estimatedTransitDays ?? route.days?.[0] ?? 0,
+      cost: `$${Number(route.totalCost || route.estimatedCostUSD || 0).toLocaleString()}`,
+      score: Math.round((route.scores?.reliability ?? route.score ?? 0)),
+      note: route.risk ? `Risk: ${route.risk.level}` : route.riskBand ? `Risk: ${route.riskBand}` : "",
+      warnings: route.risk?.drivers || route.warnings || [],
+      requirements: [`Confidence ${(Number(route.confidence || 0) * 100).toFixed(0)}%`, `Congestion ${route.congestionIndicator || "n/a"}`, `Volatility ${route.volatility || "n/a"}`],
     };
   });
 }
@@ -659,9 +659,15 @@ export default function TerminalPage() {
         body: JSON.stringify({
           origin: originCode,
           destination: destinationCode,
-          product,
-          quantity: Number(qty),
-          quantityUnit: unit,
+          cargoType: product,
+          weightKg: unit === "kg" ? Number(qty) : 0,
+          quantity: Number(qty || 0),
+          quantityUnit: unit === "containers (20ft)" ? "containers (20ft)" : unit === "containers (40ft)" ? "containers (40ft)" : unit,
+          containerSize: unit.includes("40ft") ? "40ft" : unit.includes("20ft") ? "20ft" : undefined,
+          priority: "standard",
+          transportMode: "auto",
+          insurance: true,
+          urgency: 0,
         }),
       });
 
